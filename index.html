@@ -1,0 +1,3890 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Ref Eval">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0d1117">
+<meta name="description" content="Soccer referee evaluation tool for Colorado Soccer Association">
+<meta name="application-name" content="Ref Eval">
+
+<!-- PWA Manifest (inline via blob) -->
+<script>
+(function() {
+  const manifest = {
+    name: "Referee Evaluator",
+    short_name: "Ref Eval",
+    description: "Soccer referee evaluation tool — CSA",
+    start_url: "./",
+    display: "standalone",
+    orientation: "portrait",
+    background_color: "#0d1117",
+    theme_color: "#0d1117",
+    icons: [
+      {
+        src: "data:image/svg+xml," + encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='80' fill='%230d1117'/><text x='256' y='340' font-size='280' text-anchor='middle' fill='%23f0a500'>⚽</text></svg>`),
+        sizes: "512x512",
+        type: "image/svg+xml",
+        purpose: "any maskable"
+      }
+    ]
+  };
+  const blob = new Blob([JSON.stringify(manifest)], {type: 'application/manifest+json'});
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('link');
+  link.rel = 'manifest';
+  link.href = url;
+  document.currentScript.after(link);
+})();
+</script>
+
+<!-- Apple touch icon (inline SVG → canvas → PNG) -->
+<script>
+(function() {
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><rect width='180' height='180' rx='36' fill='%230d1117'/><text x='90' y='130' font-size='100' text-anchor='middle' fill='%23f0a500'>⚽</text></svg>`;
+  const img = new Image();
+  const svgBlob = new Blob([decodeURIComponent(svg.replace(/%23/g,'#'))], {type:'image/svg+xml'});
+  const url = URL.createObjectURL(svgBlob);
+  img.onload = function() {
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = 180;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0);
+    URL.revokeObjectURL(url);
+    const link = document.createElement('link');
+    link.rel = 'apple-touch-icon';
+    link.href = canvas.toDataURL('image/png');
+    document.head.appendChild(link);
+  };
+  img.src = url;
+})();
+</script>
+
+<title>Referee Evaluator</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+/* Reset button defaults so our styled buttons look correct */
+button {
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+:root {
+  --bg: #0d1117;
+  --surface: #161b22;
+  --surface2: #1f2937;
+  --border: #30363d;
+  --gold: #f0a500;
+  --gold-dim: rgba(240,165,0,0.15);
+  --green: #3fb950;
+  --green-dim: rgba(63,185,80,0.15);
+  --red: #f85149;
+  --red-dim: rgba(248,81,73,0.15);
+  --blue: #58a6ff;
+  --blue-dim: rgba(88,166,255,0.12);
+  --yellow: #e3b341;
+  --text: #e6edf3;
+  --muted: #8b949e;
+  --muted2: #484f58;
+  --radius: 12px;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* ── LIGHT MODE VARIABLES ── */
+[data-theme="light"] {
+  --bg: #f4f6fa;
+  --surface: #ffffff;
+  --surface2: #eef0f5;
+  --border: #d0d7e3;
+  --gold: #c87f00;
+  --gold-dim: rgba(200,127,0,0.12);
+  --green: #1a7f37;
+  --green-dim: rgba(26,127,55,0.12);
+  --red: #cf222e;
+  --red-dim: rgba(207,34,46,0.1);
+  --blue: #0969da;
+  --blue-dim: rgba(9,105,218,0.1);
+  --yellow: #9a6700;
+  --text: #1a2035;
+  --muted: #57606a;
+  --muted2: #afb8c1;
+}
+
+/* ── AUTO MODE — follows system preference ── */
+[data-theme="auto"] {
+  --bg: #f4f6fa;
+  --surface: #ffffff;
+  --surface2: #eef0f5;
+  --border: #d0d7e3;
+  --gold: #c87f00;
+  --gold-dim: rgba(200,127,0,0.12);
+  --green: #1a7f37;
+  --green-dim: rgba(26,127,55,0.12);
+  --red: #cf222e;
+  --red-dim: rgba(207,34,46,0.1);
+  --blue: #0969da;
+  --blue-dim: rgba(9,105,218,0.1);
+  --yellow: #9a6700;
+  --text: #1a2035;
+  --muted: #57606a;
+  --muted2: #afb8c1;
+}
+@media (prefers-color-scheme: dark) {
+  [data-theme="auto"] {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #1f2937;
+    --border: #30363d;
+    --gold: #f0a500;
+    --gold-dim: rgba(240,165,0,0.15);
+    --green: #3fb950;
+    --green-dim: rgba(63,185,80,0.15);
+    --red: #f85149;
+    --red-dim: rgba(248,81,73,0.15);
+    --blue: #58a6ff;
+    --blue-dim: rgba(88,166,255,0.12);
+    --yellow: #e3b341;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --muted2: #484f58;
+  }
+}
+
+/* ── THEME TOGGLE BUTTON ── */
+.theme-btn {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 5px 10px;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  touch-action: manipulation;
+  transition: all 0.15s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.theme-btn:active { opacity: 0.7; }
+
+html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; }
+
+/* ── LAYOUT ── */
+#app { display: flex; flex-direction: column; height: 100vh; height: -webkit-fill-available; }
+
+/* ── HEADER ── */
+.app-header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 12px 16px 8px;
+  padding-top: calc(12px + env(safe-area-inset-top, 0px));
+  flex-shrink: 0;
+}
+.header-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.app-title { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 800; color: var(--gold); letter-spacing: 0.5px; }
+.match-info-pill {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 12px;
+  color: var(--muted);
+  font-family: 'DM Mono', monospace;
+  cursor: pointer;
+}
+.match-info-pill span { color: var(--text); font-weight: 500; }
+
+/* ── TABS ── */
+.tabs {
+  display: flex;
+  gap: 4px;
+}
+.tab {
+  flex: 1;
+  text-align: center;
+  padding: 7px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--muted);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+  user-select: none;
+}
+.tab.active { background: var(--gold); color: #0d1117; }
+
+/* ── CONTENT ── */
+.content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  padding: 16px;
+  padding-bottom: calc(80px + var(--safe-bottom));
+}
+
+.panel { display: none; }
+.panel.active { display: block; }
+
+/* ── SECTION LABEL ── */
+.section-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 8px;
+  margin-top: 20px;
+}
+.section-label:first-child { margin-top: 0; }
+
+/* ── CARDS ── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+.card-row {
+  display: flex;
+  align-items: center;
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--border);
+  gap: 12px;
+}
+.card-row:last-child { border-bottom: none; }
+.row-label { font-size: 13px; color: var(--muted); flex-shrink: 0; min-width: 90px; }
+.row-value { flex: 1; }
+
+/* ── INPUTS ── */
+input[type="text"], input[type="date"], input[type="time"], select, textarea {
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  width: 100%;
+  outline: none;
+  -webkit-appearance: none;
+}
+select { color: var(--text); }
+select option { background: var(--surface2); color: var(--text); }
+textarea { resize: none; line-height: 1.5; min-height: 60px; }
+::placeholder { color: var(--muted2); }
+
+/* ── SCOREBOARD ── */
+.scoreboard {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 12px;
+}
+.score-teams {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 8px;
+  align-items: center;
+  text-align: center;
+}
+.team-name { font-size: 13px; color: var(--muted); line-height: 1.3; font-weight: 500; }
+.score-display {
+  font-family: 'Syne', sans-serif;
+  font-size: 48px;
+  font-weight: 800;
+  color: var(--gold);
+  letter-spacing: 4px;
+  padding: 0 12px;
+}
+.score-btns { display: flex; gap: 6px; justify-content: center; margin-top: 8px; }
+.score-btn {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.1s;
+  -webkit-user-select: none;
+}
+.score-btn:active { background: var(--gold); color: #0d1117; transform: scale(0.95); }
+
+/* ── CLOCK ── */
+.clock-bar {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.clock-display {
+  font-family: 'DM Mono', monospace;
+  font-size: 28px;
+  font-weight: 500;
+  color: var(--text);
+  letter-spacing: 2px;
+  min-width: 90px;
+}
+.clock-display.running { color: var(--green); }
+.clock-btn {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.1s;
+  white-space: nowrap;
+}
+.clock-btn:active { transform: scale(0.97); }
+.clock-btn.primary { background: var(--green); color: #0d1117; border-color: var(--green); }
+.clock-btn.danger { background: var(--red-dim); color: var(--red); border-color: var(--red); }
+.clock-period { font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; margin-left: auto; }
+
+/* ── EVENT BUTTONS ── */
+.event-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.event-btn {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  transition: all 0.12s;
+  -webkit-user-select: none;
+}
+.event-btn:active { transform: scale(0.97); }
+.event-btn .icon { font-size: 24px; }
+.event-btn .label { font-size: 12px; font-weight: 600; color: var(--muted); letter-spacing: 0.3px; }
+.event-btn .count { font-family: 'DM Mono', monospace; font-size: 18px; font-weight: 500; color: var(--text); }
+
+.event-btn.foul { border-color: rgba(88,166,255,0.3); }
+.event-btn.foul:active { background: var(--blue-dim); }
+.event-btn.yellow { border-color: rgba(227,179,65,0.4); }
+.event-btn.yellow:active { background: rgba(227,179,65,0.15); }
+.event-btn.red { border-color: rgba(248,81,73,0.4); }
+.event-btn.red:active { background: var(--red-dim); }
+.event-btn.goal { border-color: rgba(63,185,80,0.4); }
+.event-btn.goal:active { background: var(--green-dim); }
+.event-btn.offside { border-color: rgba(240,165,0,0.3); }
+.event-btn.offside:active { background: var(--gold-dim); }
+.event-btn.pk { border-color: rgba(248,81,73,0.3); }
+.event-btn.pk:active { background: var(--red-dim); }
+
+/* ── EVENT LOG ── */
+.log-list { display: flex; flex-direction: column; gap: 6px; }
+.log-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.log-time {
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  color: var(--muted);
+  min-width: 36px;
+}
+.log-icon { font-size: 16px; }
+.log-desc { flex: 1; font-size: 13px; color: var(--text); }
+.log-delete {
+  color: var(--muted2);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px;
+  -webkit-user-select: none;
+}
+.log-delete:active { color: var(--red); }
+.log-empty { text-align: center; padding: 24px; color: var(--muted); font-size: 14px; }
+
+/* ── RATINGS ── */
+.official-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 14px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+.official-tab {
+  flex-shrink: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.12s;
+}
+.official-tab.active { background: var(--gold); color: #0d1117; border-color: var(--gold); }
+
+.rating-item {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.rating-item:last-child { border-bottom: none; }
+.rating-label { font-size: 13px; color: var(--text); flex: 1; min-width: 120px; }
+.rating-bands {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.band-btn {
+  background: var(--surface2);
+  border: 1.5px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 7px;
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--muted);
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: all 0.12s;
+  white-space: nowrap;
+  line-height: 1.2;
+  text-align: center;
+}
+.band-btn:active { opacity: 0.7; transform: scale(0.96); }
+.band-btn.selected {
+  border-color: var(--gold);
+  background: var(--gold-dim);
+  color: var(--gold);
+  font-weight: 700;
+}
+.rating-num {
+  font-family: 'DM Mono', monospace;
+  font-size: 15px;
+  color: var(--gold);
+  min-width: 48px;
+  text-align: right;
+  font-weight: 500;
+}
+
+.toggle-row {
+  display: flex;
+  align-items: center;
+  padding: 13px 16px;
+  gap: 12px;
+}
+.toggle-block {
+  border-bottom: 1px solid var(--border);
+}
+.toggle-block:last-child { border-bottom: none; }
+.toggle-block .toggle-row {
+  padding-bottom: 8px;
+}
+.assessment-note {
+  width: 100%;
+  background: var(--surface2);
+  border: none;
+  border-top: 1px solid var(--border);
+  padding: 10px 16px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  color: var(--text);
+  resize: none;
+  min-height: 56px;
+  outline: none;
+  line-height: 1.5;
+  display: block;
+}
+.assessment-note:focus { background: var(--surface); }
+.assessment-note::placeholder { color: var(--muted2); }
+.toggle-label { flex: 1; font-size: 13px; color: var(--text); }
+.toggle {
+  width: 44px;
+  height: 26px;
+  background: var(--muted2);
+  border-radius: 13px;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+.toggle.on { background: var(--green); }
+.toggle::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  background: white;
+  border-radius: 50%;
+  transition: transform 0.2s;
+}
+.toggle.on::after { transform: translateX(18px); }
+
+/* ── AI FEEDBACK ── */
+.ai-card {
+  background: linear-gradient(135deg, #161b22 0%, #1a2332 100%);
+  border: 1px solid rgba(88,166,255,0.3);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 12px;
+}
+.ai-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--blue);
+  margin-bottom: 8px;
+}
+.ai-name { font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+.ai-score { font-family: 'DM Mono', monospace; font-size: 36px; font-weight: 500; color: var(--gold); line-height: 1; margin-bottom: 12px; }
+.ai-score span { font-size: 16px; color: var(--muted); }
+.ai-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.ai-tag {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 20px;
+}
+.ai-tag.pos { background: var(--green-dim); color: var(--green); }
+.ai-tag.dev { background: var(--gold-dim); color: var(--gold); }
+.ai-tag.err { background: var(--red-dim); color: var(--red); }
+.ai-narrative {
+  font-size: 13px;
+  line-height: 1.75;
+  color: #c9d1d9;
+  white-space: pre-wrap;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+  margin-top: 4px;
+}
+.ai-scorecard {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+.sc-cell {
+  background: var(--surface2);
+  padding: 10px 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.sc-cell-label { font-size: 11px; color: var(--muted); }
+.sc-cell-val { font-family: 'DM Mono', monospace; font-size: 16px; color: var(--gold); font-weight: 500; }
+
+.btn-primary {
+  width: 100%;
+  background: var(--gold);
+  color: #0d1117;
+  border: none;
+  border-radius: var(--radius);
+  padding: 16px;
+  font-family: 'Syne', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: opacity 0.15s;
+  -webkit-user-select: none;
+  margin-bottom: 12px;
+}
+.btn-primary:active { opacity: 0.85; transform: scale(0.99); }
+.btn-primary:disabled { background: var(--surface2); color: var(--muted); cursor: not-allowed; transform: none; }
+
+.btn-secondary {
+  width: 100%;
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  -webkit-user-select: none;
+}
+.btn-secondary:active { background: var(--surface2); }
+
+.spin { animation: spin 0.7s linear infinite; display: inline-block; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── MODAL ── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  z-index: 100;
+  display: flex;
+  align-items: flex-end;
+  display: none;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px 20px 0 0;
+  padding: 20px;
+  padding-bottom: calc(20px + var(--safe-bottom));
+  width: 100%;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+.modal-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.modal-close { font-size: 20px; cursor: pointer; color: var(--muted); }
+.modal-close:active { color: var(--red); }
+
+.option-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  width: 100%;
+  color: var(--text);
+  font-size: 14px;
+  font-family: 'DM Sans', sans-serif;
+  -webkit-user-select: none;
+}
+.option-btn:active { background: var(--gold-dim); border-color: var(--gold); }
+.option-icon { font-size: 20px; }
+
+.field-group { margin-bottom: 14px; }
+.field-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.field-input {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 11px 14px;
+  width: 100%;
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  outline: none;
+  -webkit-appearance: none;
+}
+.field-input:focus { border-color: var(--gold); }
+
+/* ── BOTTOM NAV HINT ── */
+.bottom-spacer { height: calc(20px + var(--safe-bottom)); }
+
+/* ── NOTES TEXTAREA ── */
+.notes-area {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  width: 100%;
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  min-height: 80px;
+  resize: none;
+  outline: none;
+}
+.notes-area:focus { border-color: var(--gold); }
+
+/* ── COPY BTN ── */
+.copy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  color: var(--muted);
+  cursor: pointer;
+  margin-top: 10px;
+  font-family: 'DM Sans', sans-serif;
+}
+.copy-btn:active { color: var(--green); border-color: var(--green); }
+
+.error-bar {
+  background: var(--red-dim);
+  border: 1px solid var(--red);
+  border-radius: 8px;
+  padding: 12px;
+  color: var(--red);
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+/* ── FINALIZE BAR ── */
+.finalize-bar {
+  margin-top: 20px;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 12px;
+}
+.finalize-hint {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 12px;
+  text-align: center;
+}
+.finalize-btns {
+  display: flex;
+  gap: 8px;
+}
+.btn-finalize {
+  flex: 1;
+  background: var(--navy, #1B2F55);
+  background: #1e3a5f;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  padding: 14px 10px;
+  font-family: 'Syne', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: opacity 0.15s;
+}
+.btn-finalize:active { opacity: 0.8; transform: scale(0.98); }
+.btn-finalize.finalized {
+  background: var(--green);
+  color: #0d1117;
+}
+.btn-log-pdf {
+  flex: 1;
+  background: var(--gold-dim);
+  color: var(--gold);
+  border: 1.5px solid var(--gold);
+  border-radius: 10px;
+  padding: 14px 10px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: opacity 0.15s;
+}
+.btn-log-pdf:active { opacity: 0.8; transform: scale(0.98); }
+
+/* ── FINALIZE SUMMARY ── */
+.finalize-stat-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.finalize-stat-row:last-child { border-bottom: none; }
+.finalize-stat-label { color: var(--muted); }
+.finalize-stat-val { font-weight: 600; color: var(--text); font-family: 'DM Mono', monospace; }
+.finalize-score {
+  text-align: center;
+  font-family: 'Syne', sans-serif;
+  font-size: 40px;
+  font-weight: 800;
+  color: var(--gold);
+  padding: 12px 0 8px;
+  letter-spacing: 4px;
+}
+.finalize-teams {
+  text-align: center;
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 16px;
+}
+.finalize-cmi-row {
+  background: var(--red-dim);
+  border: 1px solid var(--red);
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin-bottom: 6px;
+  font-size: 12px;
+  color: var(--red);
+}
+
+/* ── CRITICAL MATCH INCIDENTS ── */
+.cmi-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.cmi-btn {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: all 0.12s;
+}
+.cmi-btn:active { background: rgba(248,81,73,0.08); border-color: var(--red); transform: scale(0.97); }
+.cmi-icon { font-size: 22px; }
+.cmi-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--muted);
+  text-align: center;
+  line-height: 1.3;
+  letter-spacing: 0.2px;
+}
+.cmi-item {
+  background: var(--surface);
+  border: 1.5px solid var(--red);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 6px;
+}
+.cmi-item-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.cmi-item-type {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--red);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  flex: 1;
+}
+.cmi-item-time {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--muted);
+}
+.cmi-item-desc {
+  font-size: 12px;
+  color: var(--text);
+  line-height: 1.5;
+}
+.cmi-item-outcome {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 4px;
+  font-style: italic;
+}
+
+/* CMI decision buttons */
+.cmi-decision-btn {
+  flex: 1;
+  background: var(--surface2);
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  padding: 9px 6px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: all 0.12s;
+  text-align: center;
+}
+.cmi-decision-btn:active { opacity: 0.8; }
+#cmi_dec_correct.active  { background: var(--green-dim); border-color: var(--green); color: var(--green); }
+#cmi_dec_error.active    { background: var(--red-dim);   border-color: var(--red);   color: var(--red); }
+#cmi_dec_missed.active   { background: var(--gold-dim);  border-color: var(--gold);  color: var(--gold); }
+
+/* ── PERIOD CONTROLS ── */
+.period-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.period-btn {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 4px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: all 0.12s;
+  text-align: center;
+  letter-spacing: 0.2px;
+}
+.period-btn:active { opacity: 0.7; transform: scale(0.97); }
+.period-btn.active {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: #0d1117;
+}
+.period-btn.et { border-color: rgba(88,166,255,0.4); color: var(--blue); }
+.period-btn.et.active { background: var(--blue); border-color: var(--blue); color: white; }
+.period-btn.pso-btn-period { border-color: rgba(248,81,73,0.4); color: var(--red); }
+.period-btn.pso-btn-period.active { background: var(--red); border-color: var(--red); color: white; }
+
+/* ── PSO TRACKER ── */
+.pso-board {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+  text-align: center;
+}
+.pso-team { flex: 1; }
+.pso-team-name {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.pso-kicks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: center;
+  min-height: 22px;
+  margin-bottom: 6px;
+}
+.pso-kick {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.pso-kick.scored { background: var(--green-dim); }
+.pso-kick.missed { background: var(--red-dim); color: var(--red); }
+.pso-kick.saved  { background: var(--blue-dim); color: var(--blue); }
+.pso-total {
+  font-family: 'Syne', sans-serif;
+  font-size: 32px;
+  font-weight: 800;
+  color: var(--gold);
+}
+.pso-vs {
+  font-family: 'DM Mono', monospace;
+  font-size: 14px;
+  color: var(--muted2);
+  flex-shrink: 0;
+}
+.pso-controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.pso-col {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.pso-btn {
+  border-radius: 8px;
+  padding: 11px 8px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: all 0.12s;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+.pso-btn:active { transform: scale(0.97); opacity: 0.8; }
+.pso-btn.scored { border-color: rgba(63,185,80,0.5); color: var(--green); }
+.pso-btn.scored:active { background: var(--green-dim); }
+.pso-btn.missed { border-color: rgba(248,81,73,0.5); color: var(--red); }
+.pso-btn.missed:active { background: var(--red-dim); }
+.pso-btn.saved  { border-color: rgba(88,166,255,0.5); color: var(--blue); }
+.pso-btn.saved:active  { background: var(--blue-dim); }
+.pso-undo {
+  background: transparent;
+  border: none;
+  font-size: 11px;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 4px;
+  touch-action: manipulation;
+  text-align: center;
+}
+.pso-undo:active { color: var(--red); }
+
+/* ── FLAG FOR DISCUSSION ── */
+.flag-toggle {
+  width: 100%;
+  background: var(--surface2);
+  border: 1.5px dashed var(--border);
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  margin-bottom: 14px;
+  transition: all 0.15s;
+  touch-action: manipulation;
+}
+.flag-toggle.active {
+  background: var(--red-dim);
+  border-color: var(--red);
+  border-style: solid;
+  color: var(--red);
+}
+.flag-toggle:active { opacity: 0.8; }
+
+.log-item.flagged {
+  border-color: var(--red);
+  background: rgba(248,81,73,0.06);
+}
+.log-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.log-flag-btn {
+  font-size: 14px;
+  padding: 4px 5px;
+  background: transparent;
+  border: none;
+  opacity: 0.3;
+  cursor: pointer;
+  touch-action: manipulation;
+  border-radius: 4px;
+  transition: opacity 0.15s;
+}
+.log-flag-btn.active { opacity: 1; }
+.log-flag-btn:active { opacity: 0.7; }
+
+.flagged-header {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--red);
+  padding: 6px 2px 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.flagged-header::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--red);
+  opacity: 0.3;
+}
+.log-divider {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 14px 2px 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.log-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* ── EXPORT ACTIONS ── */
+.export-bar {
+  display: none;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.export-bar.visible { display: flex; }
+.btn-export {
+  flex: 1;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 13px 10px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.12s;
+  -webkit-user-select: none;
+}
+.btn-export:active { background: var(--surface2); transform: scale(0.97); }
+.btn-export.pdf { border-color: rgba(240,165,0,0.4); color: var(--gold); }
+.btn-export.pdf:active { background: var(--gold-dim); }
+.btn-export .exp-icon { font-size: 22px; }
+.btn-export .exp-label { font-size: 11px; letter-spacing: 0.5px; }
+
+/* ── iOS TAP FIX — all interactive elements ── */
+.tab, .official-tab, .score-btn, .event-btn,
+.toggle, .star, .log-delete, .modal-close,
+.match-info-pill, .copy-btn, .btn-export,
+.option-btn, .clock-btn {
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+}
+</style>
+</head>
+<!-- onclick="" on body is the iOS Safari fix for div tap events -->
+<body onclick="void(0)">
+<div id="app">
+
+  <!-- HEADER -->
+  <div class="app-header">
+    <div class="header-top">
+      <div class="app-title">⚽ Ref Eval</div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <button class="theme-btn" id="themeBtn" onclick="cycleTheme()">
+          <span id="themeIcon">🌙</span>
+          <span id="themeLabel">Dark</span>
+        </button>
+        <button class="match-info-pill" onclick="openMatchSetup()">
+          <span id="headerMatchLabel">Tap to set match</span>
+        </button>
+      </div>
+    </div>
+    <div class="tabs">
+      <button class="tab" onclick="switchTab('match',this)">Match</button>
+      <button class="tab active" onclick="switchTab('live',this)">Live</button>
+      <button class="tab" onclick="switchTab('ratings',this)">Ratings</button>
+      <button class="tab" onclick="switchTab('feedback',this)">Feedback</button>
+    </div>
+  </div>
+
+  <!-- CONTENT -->
+  <div class="content">
+
+    <!-- ══ MATCH INFO TAB ══ -->
+    <div class="panel" id="panel-match">
+
+      <div class="section-label">Game Information</div>
+      <div class="card">
+        <div class="card-row">
+          <div class="row-label">Home Team</div>
+          <div class="row-value"><input type="text" id="mi_home" placeholder="e.g. FC Colorado" oninput="liveMatchUpdate()"></div>
+        </div>
+        <div class="card-row">
+          <div class="row-label">Away Team</div>
+          <div class="row-value"><input type="text" id="mi_away" placeholder="e.g. Denver Dynamo" oninput="liveMatchUpdate()"></div>
+        </div>
+        <div class="card-row">
+          <div class="row-label">Date</div>
+          <div class="row-value"><input type="date" id="mi_date" oninput="liveMatchUpdate()"></div>
+        </div>
+        <div class="card-row">
+          <div class="row-label">Kickoff</div>
+          <div class="row-value"><input type="time" id="mi_kickoff" oninput="liveMatchUpdate()"></div>
+        </div>
+      </div>
+
+      <div class="section-label">Competition</div>
+      <div class="card">
+        <div class="card-row">
+          <div class="row-label">League / Cup</div>
+          <div class="row-value"><input type="text" id="mi_comp" placeholder="e.g. Rapids Icebreaker U15" oninput="liveMatchUpdate()"></div>
+        </div>
+        <div class="card-row">
+          <div class="row-label">Level</div>
+          <div class="row-value">
+            <select id="mi_level" onchange="liveMatchUpdate()">
+              <option value="">Select level</option>
+              <option>Recreational</option>
+              <option>Competitive / Club</option>
+              <option>Regional / State</option>
+              <option>National</option>
+              <option>Adult Amateur</option>
+              <option>Semi-Pro</option>
+            </select>
+          </div>
+        </div>
+        <div class="card-row">
+          <div class="row-label">Age Group</div>
+          <div class="row-value">
+            <select id="mi_age" onchange="liveMatchUpdate()">
+              <option value="">Select age group</option>
+              <option>U8</option><option>U9</option><option>U10</option>
+              <option>U11</option><option>U12</option><option>U13</option>
+              <option>U14</option><option>U15</option><option>U16</option>
+              <option>U17</option><option>U18</option><option>U19</option>
+              <option>Adult / Open</option><option>Masters</option>
+            </select>
+          </div>
+        </div>
+        <div class="card-row">
+          <div class="row-label">Gender</div>
+          <div class="row-value">
+            <select id="mi_gender" onchange="liveMatchUpdate()">
+              <option value="">Select</option>
+              <option>Boys / Men</option>
+              <option>Girls / Women</option>
+              <option>Co-ed</option>
+            </select>
+          </div>
+        </div>
+        <div class="card-row">
+          <div class="row-label">Round</div>
+          <div class="row-value"><input type="text" id="mi_round" placeholder="e.g. Group Stage, Final" oninput="liveMatchUpdate()"></div>
+        </div>
+      </div>
+
+      <div class="section-label">Venue</div>
+      <div class="card">
+        <div class="card-row">
+          <div class="row-label">Facility</div>
+          <div class="row-value"><input type="text" id="mi_venue" placeholder="e.g. Centennial Sports Complex" oninput="liveMatchUpdate()"></div>
+        </div>
+        <div class="card-row">
+          <div class="row-label">Field #</div>
+          <div class="row-value"><input type="text" id="mi_field" placeholder="e.g. Field 3A" oninput="liveMatchUpdate()"></div>
+        </div>
+        <div class="card-row">
+          <div class="row-label">City</div>
+          <div class="row-value"><input type="text" id="mi_city" placeholder="e.g. Englewood, CO" oninput="liveMatchUpdate()"></div>
+        </div>
+        <div class="card-row">
+          <div class="row-label">Weather</div>
+          <div class="row-value"><input type="text" id="mi_weather" placeholder="e.g. Clear, 68°F, light wind" oninput="liveMatchUpdate()"></div>
+        </div>
+        <div class="card-row">
+          <div class="row-label">Field Surface</div>
+          <div class="row-value">
+            <select id="mi_surface" onchange="liveMatchUpdate()">
+              <option value="">Select</option>
+              <option>Natural Grass</option>
+              <option>Artificial Turf</option>
+              <option>Hybrid</option>
+              <option>Indoor</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-label">Officials Crew</div>
+      <div class="card">
+        <div class="card-row">
+          <div class="row-label">🟡 Referee</div>
+          <div class="row-value"><input type="text" id="mi_r" placeholder="Full name" oninput="liveMatchUpdate()"></div>
+        </div>
+        <div class="card-row" style="padding-left:32px;">
+          <div class="row-label" style="font-size:11px;">Badge #</div>
+          <div class="row-value"><input type="text" id="mi_r_badge" placeholder="USSF badge / ID" oninput="liveMatchUpdate()"></div>
+        </div>
+        <div class="card-row" style="padding-left:32px;">
+          <div class="row-label" style="font-size:11px;">Cert. Level</div>
+          <div class="row-value">
+            <select id="mi_r_cert" onchange="liveMatchUpdate()">
+              <option value="">Select</option>
+              <option>Grassroots</option>
+              <option>Grade 8</option>
+              <option>Grade 7</option>
+              <option>Grade 6</option>
+              <option>Grade 5</option>
+              <option>Grade 4</option>
+              <option>MLS / Pro</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="card-row" style="border-top: 1px solid var(--border); margin-top:4px;">
+          <div class="row-label">🔵 AR1</div>
+          <div class="row-value"><input type="text" id="mi_ar1" placeholder="Full name" oninput="liveMatchUpdate()"></div>
+        </div>
+        <div class="card-row" style="padding-left:32px;">
+          <div class="row-label" style="font-size:11px;">Cert. Level</div>
+          <div class="row-value">
+            <select id="mi_ar1_cert" onchange="liveMatchUpdate()">
+              <option value="">Select</option>
+              <option>Grassroots</option>
+              <option>Grade 8</option>
+              <option>Grade 7</option>
+              <option>Grade 6</option>
+              <option>Grade 5</option>
+              <option>Grade 4</option>
+              <option>MLS / Pro</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="card-row" style="border-top: 1px solid var(--border); margin-top:4px;">
+          <div class="row-label">🔵 AR2</div>
+          <div class="row-value"><input type="text" id="mi_ar2" placeholder="Full name" oninput="liveMatchUpdate()"></div>
+        </div>
+        <div class="card-row" style="padding-left:32px;">
+          <div class="row-label" style="font-size:11px;">Cert. Level</div>
+          <div class="row-value">
+            <select id="mi_ar2_cert" onchange="liveMatchUpdate()">
+              <option value="">Select</option>
+              <option>Grassroots</option>
+              <option>Grade 8</option>
+              <option>Grade 7</option>
+              <option>Grade 6</option>
+              <option>Grade 5</option>
+              <option>Grade 4</option>
+              <option>MLS / Pro</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="card-row" style="border-top: 1px solid var(--border); margin-top:4px;">
+          <div class="row-label">⚪ 4th Off.</div>
+          <div class="row-value"><input type="text" id="mi_4th" placeholder="Full name (optional)" oninput="liveMatchUpdate()"></div>
+        </div>
+        <div class="card-row" style="padding-left:32px;">
+          <div class="row-label" style="font-size:11px;">Cert. Level</div>
+          <div class="row-value">
+            <select id="mi_4th_cert" onchange="liveMatchUpdate()">
+              <option value="">Select</option>
+              <option>Grassroots</option>
+              <option>Grade 8</option>
+              <option>Grade 7</option>
+              <option>Grade 6</option>
+              <option>Grade 5</option>
+              <option>Grade 4</option>
+              <option>MLS / Pro</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-label">Evaluator</div>
+      <div class="card">
+        <div class="card-row">
+          <div class="row-label">Your Name</div>
+          <div class="row-value"><input type="text" id="mi_evaluator" placeholder="Your name" oninput="liveMatchUpdate()"></div>
+        </div>
+        <div class="card-row">
+          <div class="row-label">Evaluator #</div>
+          <div class="row-value"><input type="text" id="mi_eval_id" placeholder="Evaluator ID / Badge #" oninput="liveMatchUpdate()"></div>
+        </div>
+        <div class="card-row">
+          <div class="row-label">Role</div>
+          <div class="row-value">
+            <select id="mi_eval_role" onchange="liveMatchUpdate()">
+              <option value="">Select</option>
+              <option>Assessor</option>
+              <option>Mentor</option>
+              <option>Instructor</option>
+              <option>Director of Assessment</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="bottom-spacer"></div>
+    </div>
+
+    <!-- ══ LIVE TAB ══ -->
+    <div class="panel active" id="panel-live">
+
+      <!-- Scoreboard -->
+      <div class="scoreboard">
+        <div class="score-teams">
+          <div>
+            <div class="team-name" id="homeTeamLabel">Home</div>
+            <div class="score-btns">
+              <button class="score-btn" onclick="adjustScore('home',-1)">−</button>
+              <button class="score-btn" onclick="adjustScore('home',1)">+</button>
+            </div>
+          </div>
+          <div class="score-display" id="scoreDisplay">0 – 0</div>
+          <div>
+            <div class="team-name" id="awayTeamLabel">Away</div>
+            <div class="score-btns">
+              <button class="score-btn" onclick="adjustScore('away',-1)">−</button>
+              <button class="score-btn" onclick="adjustScore('away',1)">+</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Clock -->
+      <div class="clock-bar">
+        <div class="clock-display" id="clockDisplay">00:00</div>
+        <button class="clock-btn primary" id="clockBtn" onclick="toggleClock()">Start</button>
+        <button class="clock-btn" onclick="resetClock()">Reset</button>
+        <div class="clock-period" id="periodLabel">1st Half</div>
+      </div>
+
+      <!-- Events -->
+      <div class="section-label">Log Event</div>
+      <div class="event-grid">
+        <button class="event-btn foul" onclick="logEvent('foul')">
+          <div class="icon">🟠</div>
+          <div class="label">Foul</div>
+          <div class="count" id="cnt-foul">0</div>
+        </button>
+        <button class="event-btn offside" onclick="logEvent('offside')">
+          <div class="icon">🚩</div>
+          <div class="label">Offside</div>
+          <div class="count" id="cnt-offside">0</div>
+        </button>
+        <button class="event-btn yellow" onclick="logEvent('yellow')">
+          <div class="icon">🟨</div>
+          <div class="label">Yellow Card</div>
+          <div class="count" id="cnt-yellow">0</div>
+        </button>
+        <button class="event-btn red" onclick="logEvent('red')">
+          <div class="icon">🟥</div>
+          <div class="label">Red Card</div>
+          <div class="count" id="cnt-red">0</div>
+        </button>
+        <button class="event-btn goal" onclick="logEvent('goal')">
+          <div class="icon">⚽</div>
+          <div class="label">Goal</div>
+          <div class="count" id="cnt-goal">0</div>
+        </button>
+        <button class="event-btn pk" onclick="logEvent('pk')">
+          <div class="icon">🎯</div>
+          <div class="label">Penalty</div>
+          <div class="count" id="cnt-pk">0</div>
+        </button>
+      </div>
+
+      <!-- ══ CRITICAL MATCH INCIDENTS ══ -->
+      <div class="section-label">Critical Match Incidents (CMI)</div>
+      <div class="cmi-grid">
+
+        <button class="cmi-btn" onclick="openCMI('goal_decision')">
+          <div class="cmi-icon">⚽</div>
+          <div class="cmi-label">Goal / No Goal</div>
+        </button>
+
+        <button class="cmi-btn" onclick="openCMI('penalty_decision')">
+          <div class="cmi-icon">🎯</div>
+          <div class="cmi-label">Penalty Decision</div>
+        </button>
+
+        <button class="cmi-btn" onclick="openCMI('dogso')">
+          <div class="cmi-icon">🚫</div>
+          <div class="cmi-label">DOGSO</div>
+        </button>
+
+        <button class="cmi-btn" onclick="openCMI('serious_foul_play')">
+          <div class="cmi-icon">🟥</div>
+          <div class="cmi-label">Serious Foul Play</div>
+        </button>
+
+        <button class="cmi-btn" onclick="openCMI('violent_conduct')">
+          <div class="cmi-icon">👊</div>
+          <div class="cmi-label">Violent Conduct</div>
+        </button>
+
+        <button class="cmi-btn" onclick="openCMI('offside_goal')">
+          <div class="cmi-icon">🚩</div>
+          <div class="cmi-label">Offside / Goal</div>
+        </button>
+
+        <button class="cmi-btn" onclick="openCMI('handling_goal')">
+          <div class="cmi-icon">✋</div>
+          <div class="cmi-label">Handling / Goal</div>
+        </button>
+
+        <button class="cmi-btn" onclick="openCMI('mistaken_identity')">
+          <div class="cmi-icon">👤</div>
+          <div class="cmi-label">Mistaken Identity</div>
+        </button>
+
+        <button class="cmi-btn" onclick="openCMI('mass_confrontation')">
+          <div class="cmi-icon">⚠️</div>
+          <div class="cmi-label">Mass Confrontation</div>
+        </button>
+
+        <button class="cmi-btn" onclick="openCMI('outside_agent')">
+          <div class="cmi-icon">🙋</div>
+          <div class="cmi-label">Outside Agent</div>
+        </button>
+
+        <button class="cmi-btn" onclick="openCMI('abandoned')">
+          <div class="cmi-icon">🛑</div>
+          <div class="cmi-label">Match Abandoned</div>
+        </button>
+
+        <button class="cmi-btn" onclick="openCMI('other')">
+          <div class="cmi-icon">📋</div>
+          <div class="cmi-label">Other CMI</div>
+        </button>
+
+      </div>
+
+      <!-- CMI Log -->
+      <div id="cmiLog" style="display:none;">
+        <div class="section-label" style="color:var(--red);">⚠ Logged CMIs</div>
+        <div class="log-list" id="cmiLogList"></div>
+      </div>
+
+      <!-- Note button -->
+      <button class="btn-secondary" onclick="openNoteModal()">📝 Add Match Event</button>
+
+      <!-- Period Controls -->
+      <div class="section-label">Period</div>
+      <div class="period-grid">
+        <button class="period-btn" id="pb-1h"  onclick="setPeriod('1h')"  >1st Half</button>
+        <button class="period-btn" id="pb-ht"  onclick="setPeriod('ht')"  >Half Time</button>
+        <button class="period-btn" id="pb-2h"  onclick="setPeriod('2h')"  >2nd Half</button>
+        <button class="period-btn" id="pb-ft"  onclick="setPeriod('ft')"  >Full Time</button>
+        <button class="period-btn" id="pb-et1" onclick="setPeriod('et1')" >ET 1st</button>
+        <button class="period-btn" id="pb-etht"onclick="setPeriod('etht')">ET Half</button>
+        <button class="period-btn" id="pb-et2" onclick="setPeriod('et2')" >ET 2nd</button>
+        <button class="period-btn" id="pb-pso" onclick="setPeriod('pso')" >Penalties</button>
+      </div>
+
+      <!-- Penalty Shootout Tracker (shown only during PSO) -->
+      <div id="psoTracker" style="display:none;">
+        <div class="section-label">Penalty Shootout</div>
+        <div class="pso-board">
+          <div class="pso-team">
+            <div class="pso-team-name" id="psoHomeName">Home</div>
+            <div class="pso-kicks" id="psoHomeKicks"></div>
+            <div class="pso-total" id="psoHomeTotal">0</div>
+          </div>
+          <div class="pso-vs">vs</div>
+          <div class="pso-team">
+            <div class="pso-team-name" id="psoAwayName">Away</div>
+            <div class="pso-kicks" id="psoAwayKicks"></div>
+            <div class="pso-total" id="psoAwayTotal">0</div>
+          </div>
+        </div>
+        <div class="pso-controls">
+          <div class="pso-col">
+            <button class="pso-btn scored" onclick="logPsoKick('home','scored')">⚽ Scored</button>
+            <button class="pso-btn missed" onclick="logPsoKick('home','missed')">✕ Missed</button>
+            <button class="pso-btn saved"  onclick="logPsoKick('home','saved')">🧤 Saved</button>
+            <button class="pso-undo" onclick="undoPsoKick('home')">↩ Undo</button>
+          </div>
+          <div class="pso-col">
+            <button class="pso-btn scored" onclick="logPsoKick('away','scored')">⚽ Scored</button>
+            <button class="pso-btn missed" onclick="logPsoKick('away','missed')">✕ Missed</button>
+            <button class="pso-btn saved"  onclick="logPsoKick('away','saved')">🧤 Saved</button>
+            <button class="pso-undo" onclick="undoPsoKick('away')">↩ Undo</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Log -->
+      <div class="section-label">Match Log</div>
+      <div class="log-list" id="logList">
+        <div class="log-empty">No events yet — tap above to log</div>
+      </div>
+
+      <!-- ══ FINALIZE ══ -->
+      <div class="finalize-bar">
+        <div class="finalize-hint">Match concluded? Lock the log and save your record.</div>
+        <div class="finalize-btns">
+          <button class="btn-finalize" onclick="openFinalizeModal()">
+            🏁 Finalize Match
+          </button>
+          <button class="btn-log-pdf" onclick="exportMatchLogPDF()">
+            📄 Save Match Log PDF
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ══ RATINGS TAB ══ -->
+    <div class="panel" id="panel-ratings">
+
+      <div class="official-tabs" id="officialTabs">
+        <button class="official-tab active" onclick="switchOfficial(0,this)">Referee</button>
+        <button class="official-tab" onclick="switchOfficial(1,this)">AR1</button>
+        <button class="official-tab" onclick="switchOfficial(2,this)">AR2</button>
+        <button class="official-tab" onclick="switchOfficial(3,this)">4th</button>
+      </div>
+
+      <div id="officialPanels"></div>
+
+    </div>
+
+    <!-- ══ FEEDBACK TAB ══ -->
+    <div class="panel" id="panel-feedback">
+
+      <div class="section-label">Evaluator Notes</div>
+      <textarea class="notes-area" id="evalNotes" placeholder="Add context: weather, crowd, field conditions, first tournament game, newly upgraded official, etc."></textarea>
+
+      <div style="height:12px;"></div>
+
+      <button class="btn-primary" id="generateBtn" onclick="generateFeedback()">
+        ✦ Generate AI Feedback
+      </button>
+
+      <div class="error-bar" id="errBar" style="display:none;"></div>
+
+      <!-- Export actions — shown after feedback generated -->
+      <div class="export-bar" id="exportBar">
+        <button class="btn-export pdf" onclick="exportPDF()">
+          <div class="exp-icon">📄</div>
+          <div class="exp-label">Download PDF</div>
+        </button>
+        <button class="btn-export" onclick="exportText()">
+          <div class="exp-icon">📋</div>
+          <div class="exp-label">Copy All Text</div>
+        </button>
+        <button class="btn-export" onclick="printReport()">
+          <div class="exp-icon">🖨️</div>
+          <div class="exp-label">Print / Share</div>
+        </button>
+      </div>
+
+      <div id="feedbackOutput"></div>
+
+    </div>
+
+  </div>
+</div>
+
+<!-- ══ MODAL: Finalize Match ══ -->
+<div class="modal-overlay" id="finalizeModal" onclick="if(event.target===this)closeFinalizeModal()">
+  <div class="modal">
+    <div class="modal-title">
+      🏁 Finalize Match
+      <button class="modal-close" onclick="closeFinalizeModal()">✕</button>
+    </div>
+    <div id="finalizeBody"></div>
+    <button class="btn-primary" onclick="confirmFinalize()">✓ Confirm & Finalize</button>
+    <button class="btn-secondary" style="margin-top:8px;" onclick="exportMatchLogPDF();closeFinalizeModal()">📄 Save Match Log PDF</button>
+  </div>
+</div>
+
+<!-- ══ MODAL: CMI ══ -->
+<div class="modal-overlay" id="cmiModal" onclick="if(event.target===this)closeCMI()">
+  <div class="modal">
+    <div class="modal-title">
+      <span id="cmiModalTitle">Critical Match Incident</span>
+      <button class="modal-close" onclick="closeCMI()">✕</button>
+    </div>
+    <div id="cmiModalBody"></div>
+    <button class="btn-primary" onclick="saveCMI()">Save CMI</button>
+  </div>
+</div>
+
+<!-- ══ MODAL: Match Setup ══ -->
+<div class="modal-overlay" id="matchModal" onclick="if(event.target===this)closeMatchSetup()">
+  <div class="modal">
+    <div class="modal-title">
+      Match Setup
+      <button class="modal-close" onclick="closeMatchSetup()">✕</button>
+    </div>
+    <div class="field-group">
+      <div class="field-label">Home Team</div>
+      <input class="field-input" id="m_home" type="text" placeholder="e.g. FC Colorado">
+    </div>
+    <div class="field-group">
+      <div class="field-label">Away Team</div>
+      <input class="field-input" id="m_away" type="text" placeholder="e.g. Denver Dynamo">
+    </div>
+    <div class="field-group">
+      <div class="field-label">Competition</div>
+      <input class="field-input" id="m_comp" type="text" placeholder="e.g. Rapids Icebreaker U15">
+    </div>
+    <div class="field-group">
+      <div class="field-label">Level</div>
+      <select class="field-input" id="m_level">
+        <option value="">Select level</option>
+        <option>Recreational</option>
+        <option>Competitive / Club</option>
+        <option>Regional / State</option>
+        <option>National</option>
+        <option>Adult Amateur</option>
+        <option>Semi-Pro</option>
+      </select>
+    </div>
+    <div class="field-group">
+      <div class="field-label">Date</div>
+      <input class="field-input" id="m_date" type="date">
+    </div>
+    <div class="field-group">
+      <div class="field-label">Venue</div>
+      <input class="field-input" id="m_venue" type="text" placeholder="e.g. Centennial Sports Complex">
+    </div>
+    <div class="field-group">
+      <div class="field-label">Referee Name</div>
+      <input class="field-input" id="m_r" type="text" placeholder="Referee">
+    </div>
+    <div class="field-group">
+      <div class="field-label">AR1 Name</div>
+      <input class="field-input" id="m_ar1" type="text" placeholder="AR1">
+    </div>
+    <div class="field-group">
+      <div class="field-label">AR2 Name</div>
+      <input class="field-input" id="m_ar2" type="text" placeholder="AR2">
+    </div>
+    <div class="field-group">
+      <div class="field-label">4th Official Name (optional)</div>
+      <input class="field-input" id="m_4th" type="text" placeholder="4th Official">
+    </div>
+    <button class="btn-primary" onclick="saveMatchSetup()">Save Match Info</button>
+  </div>
+</div>
+
+<!-- ══ MODAL: Event Detail ══ -->
+<div class="modal-overlay" id="eventModal" onclick="if(event.target===this)closeEventModal()">
+  <div class="modal">
+    <div class="modal-title">
+      <span id="eventModalTitle">Log Event</span>
+      <button class="modal-close" onclick="closeEventModal()">✕</button>
+    </div>
+    <div id="eventModalBody"></div>
+    <button class="btn-primary" onclick="saveEvent()">Save Event</button>
+  </div>
+</div>
+
+<!-- ══ MODAL: Note ══ -->
+<div class="modal-overlay" id="noteModal" onclick="if(event.target===this)closeNoteModal()">
+  <div class="modal">
+    <div class="modal-title">
+      Add Match Event
+      <button class="modal-close" onclick="closeNoteModal()">✕</button>
+    </div>
+    <div class="field-group">
+      <div class="field-label">Note</div>
+      <textarea class="field-input" id="noteText" rows="4" placeholder="Describe the incident or observation..."></textarea>
+    </div>
+    <button type="button" class="flag-toggle" id="note_flag" onclick="toggleFlag(this)" style="margin-bottom:12px;">
+      <span class="flag-icon">🏴</span> Flag for Discussion
+    </button>
+    <button class="btn-primary" onclick="saveNote()">Add to Log</button>
+  </div>
+</div>
+
+<script>
+// ══ STATE ══
+const state = {
+  match: {
+    home: 'Home', away: 'Away', comp: '', level: '', date: '', venue: '',
+    r: 'Referee', ar1: 'AR1', ar2: 'AR2', fourth: '',
+    // new fields
+    kickoff: '', age: '', gender: '', round: '',
+    field: '', city: '', weather: '', surface: '',
+    r_badge: '', r_cert: '',
+    ar1_cert: '', ar2_cert: '', fourth_cert: '',
+    evaluator: '', eval_id: '', eval_role: '',
+  },
+  score: { home: 0, away: 0 },
+  clock: { running: false, seconds: 0, period: '1h', interval: null },
+  log: [],
+  counts: { foul: 0, offside: 0, yellow: 0, red: 0, goal: 0, pk: 0 },
+  pso: { home: [], away: [] },
+  officials: [
+    { role: 'Referee', ratings: {}, toggles: { capacityCurrent: null, capacityHigher: null, receptive: null }, toggleNotes: { capacityCurrent: '', capacityHigher: '', receptive: '' }, notes: '', incidents: '' },
+    { role: 'AR1',     ratings: {}, toggles: { capacityCurrent: null, capacityHigher: null, receptive: null }, toggleNotes: { capacityCurrent: '', capacityHigher: '', receptive: '' }, notes: '', incidents: '' },
+    { role: 'AR2',     ratings: {}, toggles: { capacityCurrent: null, capacityHigher: null, receptive: null }, toggleNotes: { capacityCurrent: '', capacityHigher: '', receptive: '' }, notes: '', incidents: '' },
+    { role: '4th',     ratings: {}, toggles: { capacityCurrent: null, capacityHigher: null, receptive: null }, toggleNotes: { capacityCurrent: '', capacityHigher: '', receptive: '' }, notes: '', incidents: '' },
+  ],
+  currentOfficial: 0,
+  pendingEvent: null,
+};
+
+const CRITERIA = {
+  Referee: ['Match Control','Game Management','Positioning','Interaction','Advantage Play','Restart Management','Teamwork'],
+  AR1:     ['Offside Accuracy','Positioning','Movement','Signal Clarity','Teamwork','Corner & Goal Kicks'],
+  AR2:     ['Offside Accuracy','Positioning','Movement','Signal Clarity','Teamwork','Corner & Goal Kicks'],
+  '4th':   ['Technical Area Mgmt','Interaction','Teamwork','Substitution Mgmt'],
+};
+
+const EVENT_META = {
+  foul:    { icon: '🟠', label: 'Foul' },
+  offside: { icon: '🚩', label: 'Offside' },
+  yellow:  { icon: '🟨', label: 'Yellow Card' },
+  red:     { icon: '🟥', label: 'Red Card' },
+  goal:    { icon: '⚽', label: 'Goal' },
+  pk:      { icon: '🎯', label: 'Penalty' },
+};
+
+// ══ TABS ══
+function switchTab(name, el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('panel-' + name).classList.add('active');
+}
+
+// ══ LIVE MATCH UPDATE (Match Info tab → state) ══
+function liveMatchUpdate() {
+  const g = id => document.getElementById(id)?.value?.trim() || '';
+  const m = state.match;
+  m.home    = g('mi_home')    || 'Home';
+  m.away    = g('mi_away')    || 'Away';
+  m.date    = g('mi_date');
+  m.kickoff = g('mi_kickoff');
+  m.comp    = g('mi_comp');
+  m.level   = g('mi_level');
+  m.age     = g('mi_age');
+  m.gender  = g('mi_gender');
+  m.round   = g('mi_round');
+  m.venue   = g('mi_venue');
+  m.field   = g('mi_field');
+  m.city    = g('mi_city');
+  m.weather = g('mi_weather');
+  m.surface = g('mi_surface');
+  m.r       = g('mi_r')       || 'Referee';
+  m.r_badge = g('mi_r_badge');
+  m.r_cert  = g('mi_r_cert');
+  m.ar1     = g('mi_ar1')     || 'AR1';
+  m.ar1_cert= g('mi_ar1_cert');
+  m.ar2     = g('mi_ar2')     || 'AR2';
+  m.ar2_cert= g('mi_ar2_cert');
+  m.fourth  = g('mi_4th');
+  m.fourth_cert = g('mi_4th_cert');
+  m.evaluator   = g('mi_evaluator');
+  m.eval_id     = g('mi_eval_id');
+  m.eval_role   = g('mi_eval_role');
+
+  state.officials[0].role = m.r;
+  state.officials[1].role = m.ar1;
+  state.officials[2].role = m.ar2;
+  state.officials[3].role = m.fourth || '4th';
+
+  updateHeader();
+  updateOfficialTabs();
+}
+
+// ══ MATCH SETUP (legacy modal — now just opens Match tab) ══
+function openMatchSetup() {
+  // Switch to match tab
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-match').classList.add('active');
+  // Activate the Match tab button (first tab)
+  document.querySelectorAll('.tab')[0].classList.add('active');
+}
+
+function closeMatchSetup() { document.getElementById('matchModal').classList.remove('open'); }
+
+function updateHeader() {
+  const m = state.match;
+  const label = (m.home !== 'Home' || m.away !== 'Away')
+    ? `${m.home} vs ${m.away}`
+    : 'Tap to set match';
+  document.getElementById('headerMatchLabel').textContent = label;
+  document.getElementById('homeTeamLabel').textContent = m.home;
+  document.getElementById('awayTeamLabel').textContent = m.away;
+}
+
+// ══ SCORE ══
+function adjustScore(side, delta) {
+  state.score[side] = Math.max(0, state.score[side] + delta);
+  document.getElementById('scoreDisplay').textContent = `${state.score.home} – ${state.score.away}`;
+}
+
+// ══ CLOCK ══
+function toggleClock() {
+  if (state.clock.running) {
+    clearInterval(state.clock.interval);
+    state.clock.running = false;
+    document.getElementById('clockBtn').textContent = 'Start';
+    document.getElementById('clockBtn').className = 'clock-btn primary';
+    document.getElementById('clockDisplay').classList.remove('running');
+  } else {
+    state.clock.interval = setInterval(() => {
+      state.clock.seconds++;
+      updateClockDisplay();
+    }, 1000);
+    state.clock.running = true;
+    document.getElementById('clockBtn').textContent = 'Stop';
+    document.getElementById('clockBtn').className = 'clock-btn danger';
+    document.getElementById('clockDisplay').classList.add('running');
+  }
+}
+
+function resetClock() {
+  if (state.clock.running) toggleClock();
+  state.clock.seconds = 0;
+  updateClockDisplay();
+}
+
+const PERIOD_META = {
+  '1h':   { label: '1st Half',        icon: '▶️',  log: 'Kick Off — 1st Half' },
+  'ht':   { label: 'Half Time',        icon: '⏸',  log: 'Half Time' },
+  '2h':   { label: '2nd Half',         icon: '▶️',  log: 'Kick Off — 2nd Half' },
+  'ft':   { label: 'Full Time',        icon: '🏁',  log: 'Full Time' },
+  'et1':  { label: 'ET 1st Half',      icon: '▶️',  log: 'Extra Time — 1st Half' },
+  'etht': { label: 'ET Half Time',     icon: '⏸',  log: 'Extra Time — Half Time' },
+  'et2':  { label: 'ET 2nd Half',      icon: '▶️',  log: 'Extra Time — 2nd Half' },
+  'pso':  { label: 'Penalty Shootout', icon: '🎯',  log: 'Penalty Shootout' },
+};
+
+function setPeriod(p) {
+  if (state.clock.running) toggleClock();
+  state.clock.period = p;
+
+  // Update active button
+  document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.getElementById('pb-' + p);
+  if (btn) btn.classList.add('active');
+
+  // Update period label on clock
+  document.getElementById('periodLabel').textContent = PERIOD_META[p].label;
+
+  // Log the transition
+  addLogItem(PERIOD_META[p].icon, PERIOD_META[p].log, null);
+
+  // Show/hide PSO tracker
+  const psoTracker = document.getElementById('psoTracker');
+  if (p === 'pso') {
+    psoTracker.style.display = 'block';
+    document.getElementById('psoHomeName').textContent = state.match.home;
+    document.getElementById('psoAwayName').textContent = state.match.away;
+    renderPso();
+  } else {
+    psoTracker.style.display = 'none';
+  }
+}
+
+function getCurrentTime() {
+  const m = Math.floor(state.clock.seconds / 60);
+  const p = state.clock.period;
+  const prefix = { '1h':'', '2h':'', 'et1':'ET ', 'et2':'ET ', 'pso':'PSO ' }[p] || '';
+  return `${prefix}${m}'`;
+}
+
+// ══ PSO TRACKING ══
+function logPsoKick(side, result) {
+  const icons = { scored: '⚽', missed: '✕', saved: '🧤' };
+  state.pso[side].push(result);
+  const kickNum = state.pso[side].length;
+  const teamName = side === 'home' ? state.match.home : state.match.away;
+  addLogItem(icons[result], `PSO Kick ${kickNum} — ${teamName}: ${result.charAt(0).toUpperCase() + result.slice(1)}`, 'PSO');
+  renderPso();
+}
+
+function undoPsoKick(side) {
+  if (state.pso[side].length > 0) {
+    state.pso[side].pop();
+    renderPso();
+  }
+}
+
+function renderPso() {
+  ['home','away'].forEach(side => {
+    const kicks = state.pso[side];
+    const icons = { scored: '⚽', missed: '✕', saved: '🧤' };
+    const colors = { scored: 'scored', missed: 'missed', saved: 'saved' };
+    const scored = kicks.filter(k => k === 'scored').length;
+
+    document.getElementById(`pso${side.charAt(0).toUpperCase()+side.slice(1)}Kicks`).innerHTML =
+      kicks.map(k => `<div class="pso-kick ${colors[k]}">${icons[k]}</div>`).join('');
+    document.getElementById(`pso${side.charAt(0).toUpperCase()+side.slice(1)}Total`).textContent = scored;
+  });
+}
+
+function updateClockDisplay() {
+  const m = Math.floor(state.clock.seconds / 60);
+  const s = state.clock.seconds % 60;
+  document.getElementById('clockDisplay').textContent =
+    String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+}
+
+// ══ CRITICAL MATCH INCIDENTS ══
+const CMI_TYPES = {
+  goal_decision:     { label: 'Goal / No Goal Decision',        icon: '⚽' },
+  penalty_decision:  { label: 'Penalty Kick Decision',          icon: '🎯' },
+  dogso:             { label: 'DOGSO',                          icon: '🚫' },
+  serious_foul_play: { label: 'Serious Foul Play',              icon: '🟥' },
+  violent_conduct:   { label: 'Violent Conduct',                icon: '👊' },
+  offside_goal:      { label: 'Offside Affecting Goal',         icon: '🚩' },
+  handling_goal:     { label: 'Handling Affecting Goal',        icon: '✋' },
+  mistaken_identity: { label: 'Mistaken Identity',              icon: '👤' },
+  mass_confrontation:{ label: 'Mass Confrontation',             icon: '⚠️' },
+  outside_agent:     { label: 'Outside Agent Interference',     icon: '🙋' },
+  abandoned:         { label: 'Match Abandoned / Suspended',    icon: '🛑' },
+  other:             { label: 'Other CMI',                      icon: '📋' },
+};
+
+state.cmis = [];
+
+function openCMI(type) {
+  state._pendingCMI = type;
+  const meta = CMI_TYPES[type];
+  document.getElementById('cmiModalTitle').textContent = meta.icon + ' ' + meta.label;
+
+  const rName   = state.match.r   || 'Referee';
+  const ar1Name = state.match.ar1 || 'AR1';
+  const ar2Name = state.match.ar2 || 'AR2';
+
+  let body = '';
+
+  // Correct / Error decision
+  body += `<div class="field-group"><div class="field-label">Decision Correct or Error?</div>
+    <div style="display:flex;gap:8px;margin-top:2px;">
+      <button type="button" class="cmi-decision-btn" id="cmi_dec_correct" onclick="selectCMIDecision('correct')">✓ Correct</button>
+      <button type="button" class="cmi-decision-btn" id="cmi_dec_error"   onclick="selectCMIDecision('error')">✕ Clear Error</button>
+      <button type="button" class="cmi-decision-btn" id="cmi_dec_missed"  onclick="selectCMIDecision('missed')">○ Missed</button>
+    </div>
+  </div>`;
+
+  // Who made the decision
+  body += `<div class="field-group"><div class="field-label">Decision By</div>
+    <select class="field-input" id="cmi_by">
+      <option value="">— select —</option>
+      <option value="${rName}">${rName} (Referee)</option>
+      <option value="${ar1Name}">${ar1Name} (AR1)</option>
+      <option value="${ar2Name}">${ar2Name} (AR2)</option>
+      <option value="Shared">Shared Decision</option>
+    </select></div>`;
+
+  // Type-specific fields
+  if (type === 'goal_decision' || type === 'offside_goal' || type === 'handling_goal') {
+    body += `<div class="field-group"><div class="field-label">Goal Outcome</div>
+      <select class="field-input" id="cmi_goal_outcome">
+        <option value="">— select —</option>
+        <option value="Goal awarded — correct">Goal awarded — correct</option>
+        <option value="Goal awarded — should not have stood">Goal awarded — should not have stood</option>
+        <option value="Goal disallowed — correct">Goal disallowed — correct</option>
+        <option value="Goal disallowed — should have stood">Goal disallowed — should have stood</option>
+      </select></div>`;
+  }
+
+  if (type === 'penalty_decision' || type === 'dogso') {
+    body += `<div class="field-group"><div class="field-label">Location of Offense</div>
+      <select class="field-input" id="cmi_location">
+        <option value="">— select —</option>
+        <option value="Inside penalty area">Inside penalty area</option>
+        <option value="Outside penalty area — correctly no penalty">Outside penalty area — correctly no penalty</option>
+        <option value="Outside penalty area — incorrectly no penalty">Outside penalty area — penalty should have been given</option>
+        <option value="Penalty given — should have been outside">Penalty given — offense was outside area</option>
+      </select></div>`;
+  }
+
+  if (type === 'dogso') {
+    body += `<div class="field-group"><div class="field-label">DOGSO Category</div>
+      <select class="field-input" id="cmi_dogso_cat">
+        <option value="">— select —</option>
+        <option value="DOGSO-F (foul)">DOGSO-F — Foul denying goal-scoring opportunity</option>
+        <option value="DOGSO-H (handball)">DOGSO-H — Handball denying goal-scoring opportunity</option>
+        <option value="4 Ds assessed - correct">4 Ds assessed — Direction, Distance, Defenders, Ball</option>
+        <option value="4 Ds not correctly assessed">4 Ds not correctly assessed</option>
+      </select></div>`;
+  }
+
+  if (type === 'serious_foul_play' || type === 'violent_conduct') {
+    body += `<div class="field-group"><div class="field-label">Card Issued</div>
+      <select class="field-input" id="cmi_card">
+        <option value="">— select —</option>
+        <option value="Red card issued — correct">Red card issued — correct</option>
+        <option value="Red card issued — should have been yellow">Red card issued — should have been yellow</option>
+        <option value="Red card issued — no card warranted">Red card issued — no card warranted</option>
+        <option value="Yellow card issued — should have been red">Yellow card issued — should have been red (missed red)</option>
+        <option value="No card issued — red required">No card issued — red card required</option>
+      </select></div>`;
+  }
+
+  if (type === 'mistaken_identity') {
+    body += `<div class="field-group"><div class="field-label">Outcome</div>
+      <select class="field-input" id="cmi_identity_outcome">
+        <option value="">— select —</option>
+        <option value="Correct player cautioned/sent off">Correct player cautioned / sent off</option>
+        <option value="Wrong player cautioned">Wrong player cautioned — mistaken identity</option>
+        <option value="Wrong player sent off">Wrong player sent off — mistaken identity</option>
+        <option value="Corrected before restart">Corrected before restart</option>
+      </select></div>`;
+  }
+
+  // Advantage played
+  body += `<div class="field-group"><div class="field-label">Advantage Applied?</div>
+    <select class="field-input" id="cmi_advantage">
+      <option value="">— select —</option>
+      <option value="No advantage situation">Not applicable</option>
+      <option value="Advantage applied — correct">Advantage applied — correct decision</option>
+      <option value="Advantage applied — should have stopped play">Advantage applied — should have stopped play</option>
+      <option value="Advantage not applied — should have been">Advantage not applied — should have been played</option>
+    </select></div>`;
+
+  // Description
+  body += `<div class="field-group"><div class="field-label">Description of Incident</div>
+    <textarea class="field-input" id="cmi_desc" rows="3" placeholder="Describe what happened, including relevant context..."></textarea></div>`;
+
+  // Impact on match
+  body += `<div class="field-group"><div class="field-label">Impact on Match</div>
+    <select class="field-input" id="cmi_impact">
+      <option value="">— select —</option>
+      <option value="No impact on result">No material impact on match result</option>
+      <option value="Possible impact on result">Possible impact on match result</option>
+      <option value="Significant impact on result">Significant impact on match result</option>
+      <option value="Directly changed result">Directly changed match result</option>
+    </select></div>`;
+
+  // Flag
+  body += `<button type="button" class="flag-toggle" id="cmi_flag" onclick="toggleFlag(this)">
+    <span class="flag-icon">🏴</span> Flag for Post-Match Discussion
+  </button>`;
+
+  document.getElementById('cmiModalBody').innerHTML = body;
+  document.getElementById('cmiModal').classList.add('open');
+}
+
+function selectCMIDecision(val) {
+  document.querySelectorAll('.cmi-decision-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('cmi_dec_' + val).classList.add('active');
+  document.getElementById('cmi_dec_' + val).dataset.selected = 'true';
+}
+
+function closeCMI() {
+  document.getElementById('cmiModal').classList.remove('open');
+  state._pendingCMI = null;
+}
+
+function saveCMI() {
+  const type = state._pendingCMI;
+  if (!type) return;
+  const meta = CMI_TYPES[type];
+
+  const decisionBtn = document.querySelector('.cmi-decision-btn.active');
+  const decision = decisionBtn ? decisionBtn.textContent.trim() : '';
+  const by       = document.getElementById('cmi_by')?.value || '';
+  const desc     = document.getElementById('cmi_desc')?.value?.trim() || '';
+  const impact   = document.getElementById('cmi_impact')?.value || '';
+  const advantage= document.getElementById('cmi_advantage')?.value || '';
+  const flagged  = document.getElementById('cmi_flag')?.classList.contains('active') || false;
+
+  // Type-specific fields
+  const extras = [];
+  const goalOutcome    = document.getElementById('cmi_goal_outcome')?.value;
+  const location       = document.getElementById('cmi_location')?.value;
+  const dogsoCat       = document.getElementById('cmi_dogso_cat')?.value;
+  const card           = document.getElementById('cmi_card')?.value;
+  const identityOutcome= document.getElementById('cmi_identity_outcome')?.value;
+  if (goalOutcome)     extras.push(goalOutcome);
+  if (location)        extras.push(location);
+  if (dogsoCat)        extras.push(dogsoCat);
+  if (card)            extras.push(card);
+  if (identityOutcome) extras.push(identityOutcome);
+
+  const cmi = {
+    id: Date.now(),
+    type, meta,
+    decision, by, desc, impact, advantage,
+    extras, flagged,
+    time: getCurrentTime(),
+  };
+
+  if (!state.cmis) state.cmis = [];
+  state.cmis.push(cmi);
+
+  // Also add to main match log
+  const logDesc = `CMI: ${meta.label}${decision ? ' [' + decision + ']' : ''}${by ? ' — ' + by : ''}${desc ? ': ' + desc.substring(0,60) + (desc.length > 60 ? '…':'') : ''}`;
+  addLogItem('⚠️', logDesc, getCurrentTime(), flagged);
+
+  renderCMILog();
+  closeCMI();
+}
+
+function renderCMILog() {
+  const list = document.getElementById('cmiLogList');
+  const container = document.getElementById('cmiLog');
+  if (!state.cmis || state.cmis.length === 0) {
+    container.style.display = 'none';
+    return;
+  }
+  container.style.display = 'block';
+  list.innerHTML = state.cmis.slice().reverse().map(c => `
+    <div class="cmi-item ${c.flagged ? 'flagged' : ''}">
+      <div class="cmi-item-header">
+        <div class="cmi-item-type">${c.meta.icon} ${c.meta.label}</div>
+        <div class="cmi-item-time">${c.time || '—'}</div>
+        <button class="log-delete" onclick="deleteCMI(${c.id})">✕</button>
+      </div>
+      ${c.decision ? `<div class="cmi-item-outcome">${c.decision}${c.by ? ' · ' + c.by : ''}</div>` : ''}
+      ${c.extras.length ? `<div class="cmi-item-outcome">${c.extras.join(' · ')}</div>` : ''}
+      ${c.desc ? `<div class="cmi-item-desc">${c.desc}</div>` : ''}
+      ${c.impact ? `<div class="cmi-item-outcome">Impact: ${c.impact}</div>` : ''}
+    </div>
+  `).join('');
+}
+
+function deleteCMI(id) {
+  state.cmis = state.cmis.filter(c => c.id !== id);
+  renderCMILog();
+}
+
+// ══ EVENTS ══
+function logEvent(type) {
+  state.pendingEvent = { type };
+  const meta = EVENT_META[type];
+  document.getElementById('eventModalTitle').textContent = meta.icon + ' ' + meta.label;
+
+  let body = '';
+  const hasTeam = ['foul','yellow','red','goal','pk'].includes(type);
+  const hasSide = ['foul','offside'].includes(type);
+  const hasOffense = ['yellow','red'].includes(type);
+
+  if (hasTeam) {
+    body += `<div class="field-group"><div class="field-label">Team</div>
+      <select class="field-input" id="ev_team">
+        <option value="">— select team —</option>
+        <option value="home">${state.match.home}</option>
+        <option value="away">${state.match.away}</option>
+      </select></div>`;
+  }
+  if (hasSide) {
+    const rName   = state.match.r   || 'Referee';
+    const ar1Name = state.match.ar1 || 'AR1';
+    const ar2Name = state.match.ar2 || 'AR2';
+    body += `<div class="field-group"><div class="field-label">Decision By</div>
+      <select class="field-input" id="ev_side">
+        <option value="">— select —</option>
+        <option value="${rName}">${rName} (Referee)</option>
+        <option value="${ar1Name}">${ar1Name} (AR1)</option>
+        <option value="${ar2Name}">${ar2Name} (AR2)</option>
+        <option value="Shared">Shared Decision</option>
+      </select></div>`;
+
+    body += `<div class="field-group"><div class="field-label">Type of Foul</div>
+      <select class="field-input" id="ev_foul_type">
+        <option value="">— select type —</option>
+        <optgroup label="Careless — No Disciplinary Action">
+          <option value="Careless">Careless — No special attention to direction/force; free kick only</option>
+        </optgroup>
+        <optgroup label="Reckless — Caution (Yellow Card)">
+          <option value="Reckless">Reckless — Disregard for danger/consequences to opponent; yellow card</option>
+        </optgroup>
+        <optgroup label="Excessive Force — Send Off (Red Card)">
+          <option value="Excessive Force - Serious Foul Play">Excessive Force / Serious Foul Play — Endangers safety of opponent; red card</option>
+          <option value="Excessive Force - Violent Conduct">Excessive Force / Violent Conduct — Against person other than opponent or off the ball; red card</option>
+        </optgroup>
+        <optgroup label="Handling">
+          <option value="Handball - Deliberate">Deliberate Handball — Intentional hand/arm contact</option>
+          <option value="Handball - Accidental DOGSO">Accidental Handball — Denying Goal-Scoring Opportunity (DOGSO)</option>
+        </optgroup>
+        <optgroup label="Technical Fouls">
+          <option value="Holding">Holding</option>
+          <option value="Pushing">Pushing</option>
+          <option value="Charging - Careless">Charging — Careless</option>
+          <option value="Charging - Reckless">Charging — Reckless / Excessive Force</option>
+          <option value="Jumping at opponent">Jumping at an opponent</option>
+          <option value="Kicking or attempting to kick">Kicking or attempting to kick</option>
+          <option value="Striking or attempting to strike">Striking or attempting to strike</option>
+          <option value="Tackling / Sliding - Careless">Tackling / Sliding — Careless</option>
+          <option value="Tackling / Sliding - Reckless">Tackling / Sliding — Reckless</option>
+          <option value="Tackling / Sliding - Excessive Force">Tackling / Sliding — Excessive Force</option>
+          <option value="Tripping or attempting to trip">Tripping or attempting to trip</option>
+          <option value="Impeding without contact">Impeding without contact</option>
+          <option value="Obstruction">Obstruction / Blocking the goalkeeper</option>
+        </optgroup>
+        <optgroup label="Goalkeeper Offenses">
+          <option value="GK - Handling back-pass">GK — Handling deliberate back-pass with feet</option>
+          <option value="GK - Handling throw-in">GK — Handling direct throw-in from teammate</option>
+          <option value="GK - Possessing ball too long">GK — Possessing ball more than 6 seconds</option>
+          <option value="GK - Double touch">GK — Touching ball again before another player</option>
+        </optgroup>
+      </select></div>`;
+  }
+  if (hasOffense) {
+    body += `<div class="field-group"><div class="field-label">Player # (optional)</div>
+      <input class="field-input" id="ev_player" type="text" inputmode="numeric" placeholder="e.g. 7"></div>`;
+
+    if (type === 'yellow') {
+      body += `<div class="field-group"><div class="field-label">Cautionable Offense (Yellow Card)</div>
+        <select class="field-input" id="ev_offense">
+          <option value="">— select reason —</option>
+          <optgroup label="C1 — Unsporting Behavior">
+            <option value="C1 - Handles ball to prevent goal/attack">C1 · Handles ball to prevent goal or promising attack</option>
+            <option value="C1 - Commits reckless challenge">C1 · Commits reckless challenge</option>
+            <option value="C1 - Interferes with or impedes goalkeeper">C1 · Interferes with or impedes goalkeeper</option>
+            <option value="C1 - Attempts to deceive the referee (simulation)">C1 · Simulation / attempts to deceive (diving)</option>
+            <option value="C1 - Gestures/acts in a provocative or inflammatory manner">C1 · Provocative or inflammatory gesture</option>
+            <option value="C1 - Verbally distracts opponent during play">C1 · Verbally distracts opponent</option>
+            <option value="C1 - Deliberately handles the ball">C1 · Deliberately handles the ball (other)</option>
+            <option value="C1 - Other unsporting behavior">C1 · Other unsporting behavior</option>
+          </optgroup>
+          <optgroup label="C2 — Dissent">
+            <option value="C2 - Dissent by word">C2 · Dissent by word</option>
+            <option value="C2 - Dissent by action">C2 · Dissent by action</option>
+          </optgroup>
+          <optgroup label="C3 — Persistent Infringement">
+            <option value="C3 - Persistent infringement of the Laws">C3 · Persistent infringement of the Laws</option>
+          </optgroup>
+          <optgroup label="C4 — Delaying Restart">
+            <option value="C4 - Delays restart of play">C4 · Delays restart of play</option>
+            <option value="C4 - Kicks or carries ball away after a decision">C4 · Kicks or carries ball away</option>
+            <option value="C4 - Excessively delays taking a restart">C4 · Excessively delays taking a restart</option>
+          </optgroup>
+          <optgroup label="C5 — Failure to Respect Distance">
+            <option value="C5 - Fails to respect required distance at restart">C5 · Fails to respect required distance (free kick / corner)</option>
+            <option value="C5 - Encroachment on penalty kick">C5 · Encroachment on penalty kick</option>
+          </optgroup>
+          <optgroup label="C6 — Entering/Leaving Without Permission">
+            <option value="C6 - Enters field without permission">C6 · Enters field without permission</option>
+            <option value="C6 - Leaves field without permission">C6 · Leaves field without permission</option>
+          </optgroup>
+          <optgroup label="C7 — Second Caution">
+            <option value="C7 - Second caution in same match">C7 · Second caution in same match</option>
+          </optgroup>
+        </select></div>`;
+    }
+
+    if (type === 'red') {
+      body += `<div class="field-group"><div class="field-label">Sending-Off Offense (Red Card)</div>
+        <select class="field-input" id="ev_offense">
+          <option value="">— select reason —</option>
+          <optgroup label="S1 — Serious Foul Play">
+            <option value="S1 - Serious foul play">S1 · Serious foul play</option>
+          </optgroup>
+          <optgroup label="S2 — Violent Conduct">
+            <option value="S2 - Violent conduct">S2 · Violent conduct</option>
+          </optgroup>
+          <optgroup label="S3 — Spitting">
+            <option value="S3 - Spits at person">S3 · Spits at a person</option>
+          </optgroup>
+          <optgroup label="S4 — DOGSO (Denying an Obvious Goal-Scoring Opportunity)">
+            <option value="S4 - DOGSO by foul (no handball)">S4 · DOGSO — by foul (no deliberate handball)</option>
+            <option value="S4 - DOGSO by deliberate handball (not GK)">S4 · DOGSO — deliberate handball (not goalkeeper)</option>
+            <option value="S4 - DOGSO by deliberate handball (GK outside area)">S4 · DOGSO — goalkeeper handball outside own penalty area</option>
+          </optgroup>
+          <optgroup label="S5 — Offensive / Abusive Language or Gestures">
+            <option value="S5 - Offensive language or gestures">S5 · Offensive, insulting, or abusive language or gestures</option>
+          </optgroup>
+          <optgroup label="S6 — Second Caution">
+            <option value="S6 - Second caution (two yellows)">S6 · Second caution in same match (two yellows = red)</option>
+          </optgroup>
+          <optgroup label="S7 — Biting or Spitting at Participant">
+            <option value="S7 - Biting a participant">S7 · Biting a participant</option>
+          </optgroup>
+        </select></div>`;
+    }
+  }
+  if (type === 'pk') {
+    body += `<div class="field-group"><div class="field-label">Player # (optional)</div>
+      <input class="field-input" id="ev_player" type="text" inputmode="numeric" placeholder="e.g. 7"></div>`;
+    body += `<div class="field-group"><div class="field-label">Result</div>
+      <select class="field-input" id="ev_pk">
+        <option value="awarded">Awarded</option>
+        <option value="scored">Scored</option>
+        <option value="saved">Saved</option>
+        <option value="missed">Missed</option>
+      </select></div>`;
+  }
+
+  body += `<div class="field-group"><div class="field-label">Notes (optional)</div>
+    <textarea class="field-input" id="ev_note" rows="2" placeholder="Brief description..."></textarea></div>`;
+
+  body += `<button type="button" class="flag-toggle" id="ev_flag" onclick="toggleFlag(this)">
+    <span class="flag-icon">🏴</span> Flag for Discussion
+  </button>`;
+
+  document.getElementById('eventModalBody').innerHTML = body;
+  document.getElementById('eventModal').classList.add('open');
+}
+
+function closeEventModal() { document.getElementById('eventModal').classList.remove('open'); state.pendingEvent = null; }
+
+function saveEvent() {
+  const type = state.pendingEvent.type;
+  const meta = EVENT_META[type];
+  const team = document.getElementById('ev_team')?.value;
+  const side = document.getElementById('ev_side')?.value;
+  const foulType = document.getElementById('ev_foul_type')?.value;
+  const offense = document.getElementById('ev_offense')?.value;
+  const player = document.getElementById('ev_player')?.value?.trim();
+  const pkRes = document.getElementById('ev_pk')?.value;
+  const note = document.getElementById('ev_note')?.value;
+
+  let desc = meta.label;
+  if (team) desc += ` — ${team === 'home' ? state.match.home : state.match.away}`;
+  if (player) desc += ` #${player}`;
+  if (foulType) desc += `: ${foulType}`;
+  if (side) desc += ` [${side}]`;
+  if (offense) desc += `: ${offense}`;
+  if (pkRes) desc += ` [${pkRes}]`;
+  if (note) desc += `. ${note}`;
+
+  const flagged = document.getElementById('ev_flag')?.classList.contains('active') || false;
+
+  state.counts[type]++;
+  document.getElementById(`cnt-${type}`).textContent = state.counts[type];
+
+  addLogItem(meta.icon, desc, getCurrentTime(), flagged);
+  closeEventModal();
+}
+
+function openNoteModal() { document.getElementById('noteText').value = ''; document.getElementById('noteModal').classList.add('open'); }
+function closeNoteModal() { document.getElementById('noteModal').classList.remove('open'); }
+function saveNote() {
+  const text = document.getElementById('noteText').value.trim();
+  const flagged = document.getElementById('note_flag')?.classList.contains('active') || false;
+  if (text) addLogItem('📝', text, getCurrentTime(), flagged);
+  closeNoteModal();
+}
+
+function toggleFlag(btn) {
+  btn.classList.toggle('active');
+  const icon = btn.querySelector('.flag-icon');
+  if (btn.classList.contains('active')) {
+    icon.textContent = '🚩';
+    btn.style.background = 'rgba(248,81,73,0.15)';
+    btn.style.borderColor = 'var(--red)';
+    btn.style.color = 'var(--red)';
+  } else {
+    icon.textContent = '🏴';
+    btn.style.background = '';
+    btn.style.borderColor = '';
+    btn.style.color = '';
+  }
+}
+
+function toggleLogFlag(id) {
+  const entry = state.log.find(e => e.id === id);
+  if (entry) { entry.flagged = !entry.flagged; renderLog(); }
+}
+
+function addLogItem(icon, desc, time, flagged = false) {
+  const id = Date.now();
+  state.log.push({ id, icon, desc, time, flagged });
+  renderLog();
+}
+
+function deleteLog(id) {
+  state.log = state.log.filter(e => e.id !== id);
+  renderLog();
+}
+
+function renderLog() {
+  const el = document.getElementById('logList');
+  if (state.log.length === 0) {
+    el.innerHTML = '<div class="log-empty">No events yet — tap above to log</div>';
+    return;
+  }
+
+  const flagged = state.log.filter(e => e.flagged);
+  let html = '';
+
+  if (flagged.length > 0) {
+    html += `<div class="flagged-header">🚩 Flagged for Discussion (${flagged.length})</div>`;
+    html += flagged.slice().reverse().map(e => logItemHtml(e, true)).join('');
+    html += `<div class="log-divider">All Events</div>`;
+  }
+
+  html += state.log.slice().reverse().map(e => logItemHtml(e, false)).join('');
+  el.innerHTML = html;
+}
+
+function logItemHtml(e, compact) {
+  return `<div class="log-item ${e.flagged ? 'flagged' : ''}">
+    <div class="log-time">${e.time || '—'}</div>
+    <div class="log-icon">${e.icon}</div>
+    <div class="log-desc">${e.desc}</div>
+    <div class="log-actions">
+      <button class="log-flag-btn ${e.flagged ? 'active' : ''}" onclick="toggleLogFlag(${e.id})" title="Flag for discussion">🚩</button>
+      <button class="log-delete" onclick="deleteLog(${e.id})">✕</button>
+    </div>
+  </div>`;
+}
+
+// ══ RATINGS ══
+function updateOfficialTabs() {
+  const tabs = document.getElementById('officialTabs');
+  const names = [state.match.r, state.match.ar1, state.match.ar2, state.match.fourth || '4th'];
+  tabs.querySelectorAll('.official-tab').forEach((t, i) => {
+    t.textContent = names[i];
+  });
+}
+
+function switchOfficial(idx, el) {
+  document.querySelectorAll('.official-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  state.currentOfficial = idx;
+  buildRatingsPanel(idx);
+}
+
+// Score bands as per US Soccer evaluation scale
+const SCORE_BANDS = [
+  { label: '<7.0',    value: '<7.0' },
+  { label: '7.0–7.4', value: '7.0-7.4' },
+  { label: '7.5–7.9', value: '7.5-7.9' },
+  { label: '8.0–8.2', value: '8.0-8.2' },
+  { label: '8.3–8.4', value: '8.3-8.4' },
+  { label: '8.5',     value: '8.5' },
+  { label: '8.6–8.7', value: '8.6-8.7' },
+  { label: '8.8–9.0', value: '8.8-9.0' },
+  { label: '>9.0',    value: '>9.0' },
+];
+
+function buildRatingsPanel(idx) {
+  const off = state.officials[idx];
+  const roleKey = ['Referee','AR1','AR2','4th'][idx];
+  const criteria = CRITERIA[roleKey] || CRITERIA['Referee'];
+
+  let html = `<div class="card">`;
+
+  criteria.forEach(crit => {
+    const val = off.ratings[crit] || '';
+    const bands = SCORE_BANDS.map(b => {
+      const sel = val === b.value ? 'selected' : '';
+      return `<button class="band-btn ${sel}" onclick="setRating('${escHtml(crit)}','${b.value}',${idx})">${b.label}</button>`;
+    }).join('');
+    html += `<div class="rating-item">
+      <div class="rating-label">${crit}</div>
+      <div class="rating-bands">${bands}</div>
+    </div>`;
+  });
+
+  html += `</div>`;
+
+  // Toggles
+  html += `<div class="section-label">Assessment</div><div class="card">`;
+  const toggleDefs = [
+    { key: 'capacityCurrent', label: 'Capable at Current Level',  placeholder: 'Notes on current level performance...' },
+    { key: 'capacityHigher',  label: 'Ready for Higher Level',    placeholder: 'Notes on readiness for promotion...' },
+    { key: 'receptive',       label: 'Receptive to Feedback',     placeholder: 'Notes on how feedback was received...' },
+  ];
+  toggleDefs.forEach(td => {
+    const val = off.toggles[td.key];
+    const noteVal = off.toggleNotes?.[td.key] || '';
+    html += `<div class="toggle-block">
+      <div class="toggle-row">
+        <div class="toggle-label">${td.label}</div>
+        <button class="toggle ${val === true ? 'on' : ''}" id="tog-${idx}-${td.key}" onclick="cycleToggle(${idx},'${td.key}')"></button>
+      </div>
+      <textarea class="assessment-note" placeholder="${td.placeholder}"
+        oninput="saveToggleNote(${idx},'${td.key}',this.value)"
+      >${noteVal}</textarea>
+    </div>`;
+  });
+  html += `</div>`;
+
+  // Critical incidents
+  html += `<div class="section-label">Critical Incidents / Clear Errors</div>
+    <textarea class="notes-area" id="incidents-${idx}" placeholder="Describe any critical incidents or clear errors..."
+      onchange="state.officials[${idx}].incidents=this.value"
+      oninput="state.officials[${idx}].incidents=this.value"
+    >${off.incidents || ''}</textarea>
+    <div style="height:10px;"></div>`;
+
+  // Notes
+  html += `<div class="section-label">Match Observations</div>
+    <textarea class="notes-area" id="obs-${idx}" placeholder="General observations, strengths, areas to work on..."
+      onchange="state.officials[${idx}].notes=this.value"
+      oninput="state.officials[${idx}].notes=this.value"
+    >${off.notes || ''}</textarea>
+    <div style="height:10px;"></div>`;
+
+  document.getElementById('officialPanels').innerHTML = html;
+}
+
+function escHtml(s) { return s.replace(/'/g,"&#39;"); }
+function escId(s) { return s.replace(/[^a-z0-9]/gi,'_').toLowerCase(); }
+
+function setRating(crit, val, idx) {
+  // Toggle off if tapping the already-selected band
+  if (state.officials[idx].ratings[crit] === val) {
+    state.officials[idx].ratings[crit] = '';
+  } else {
+    state.officials[idx].ratings[crit] = val;
+  }
+  buildRatingsPanel(idx);
+}
+
+function cycleToggle(idx, key) {
+  const curr = state.officials[idx].toggles[key];
+  state.officials[idx].toggles[key] = curr === null ? true : curr === true ? false : null;
+  buildRatingsPanel(idx);
+}
+
+function saveToggleNote(idx, key, val) {
+  if (!state.officials[idx].toggleNotes) state.officials[idx].toggleNotes = {};
+  state.officials[idx].toggleNotes[key] = val;
+}
+
+// ══ AI FEEDBACK ══
+async function generateFeedback() {
+  const btn = document.getElementById('generateBtn');
+  const errBar = document.getElementById('errBar');
+  errBar.style.display = 'none';
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spin">⟳</span> Generating...';
+
+  // Build context
+  const m = state.match;
+  const logText = state.log.map(e => `[${e.time||'?'}] ${e.flagged ? '🚩FLAGGED ' : ''}${e.icon} ${e.desc}`).join('\n') || 'No events logged.';
+  const evalNotes = document.getElementById('evalNotes').value.trim();
+
+  const offData = state.officials.map((off, i) => {
+    const name = [m.r, m.ar1, m.ar2, m.fourth||'4th'][i];
+    const roleKey = ['Referee','AR1','AR2','4th'][i];
+    if (i === 3 && !m.fourth) return null;
+    return {
+      role: roleKey, name,
+      ratings: off.ratings,
+      toggles: off.toggles,
+      toggleNotes: off.toggleNotes || {},
+      notes: off.notes,
+      incidents: off.incidents,
+    };
+  }).filter(Boolean);
+
+  const systemPrompt = `You are an expert soccer referee evaluator and coach for Colorado Soccer Association (CSA), trained in USSF evaluation methodology. Your role is to produce coaching-focused, developmental feedback for each official.
+
+Tone: warm, direct, specific, growth-oriented. Write like an experienced mentor. Celebrate what went well with genuine specificity. Frame areas for development as opportunities, not criticisms.
+
+Respond ONLY with valid JSON (no markdown, no preamble):
+{
+  "officials": [
+    {
+      "role": string,
+      "name": string,
+      "overallScore": number (1-10, one decimal),
+      "scorecard": { [criterion]: number (1-10) },
+      "positiveTags": [string] (2-4 short tags),
+      "developmentTags": [string] (1-3 short tags),
+      "narrative": string (3-5 paragraphs, specific to this match's events, coaching-focused),
+      "capacityCurrentLevel": boolean|null,
+      "capacityHigherLevel": boolean|null,
+      "receptiveToFeedback": boolean|null,
+      "criticalIncidents": [string]
+    }
+  ]
+}
+
+Scoring guide: Ratings are given as US Soccer score bands (e.g. "<7.0", "7.5-7.9", "8.5", ">9.0"). Use the midpoint of each band for the scorecard numeric values. Overall score should reflect the average of rated criteria. Base narrative on actual match events. Keep feedback developmental.`;
+
+  const cmiText = (state.cmis || []).length > 0
+    ? '\n\nCRITICAL MATCH INCIDENTS (CMIs):\n' + state.cmis.map(c =>
+        `[${c.time||'?'}] ${c.meta.label}: ${c.decision || ''}${c.by ? ' by ' + c.by : ''}. ${c.desc || ''}${c.extras.length ? ' ' + c.extras.join(', ') : ''} Impact: ${c.impact || 'not assessed'}`
+      ).join('\n')
+    : '';
+
+  const userPrompt = `Match: ${m.home} vs ${m.away}
+Competition: ${[m.comp, m.age, m.gender].filter(Boolean).join(' · ') || 'Unknown'} | Level: ${[m.level, m.round].filter(Boolean).join(' · ') || 'Unknown'}
+Date: ${m.date || 'Unknown'} | Kickoff: ${m.kickoff || 'Unknown'} | Venue: ${[m.venue, m.field, m.city].filter(Boolean).join(', ') || 'Unknown'}
+Weather: ${m.weather || 'Unknown'} | Surface: ${m.surface || 'Unknown'}
+Final Score: ${state.score.home} – ${state.score.away}
+Stats: Fouls: ${state.counts.foul} | Yellows: ${state.counts.yellow} | Reds: ${state.counts.red} | Offsides: ${state.counts.offside} | Goals: ${state.counts.goal} | PKs: ${state.counts.pk}
+
+MATCH LOG:
+${logText}
+
+OFFICIALS AND RATINGS:
+${offData.map(o => `
+${o.role}: ${o.name}
+  Ratings (US Soccer score bands — e.g. "8.0-8.2"): ${JSON.stringify(o.ratings)}
+  Capable at current level: ${o.toggles.capacityCurrent}${o.toggleNotes?.capacityCurrent ? ` — ${o.toggleNotes.capacityCurrent}` : ''}
+  Ready for higher level: ${o.toggles.capacityHigher}${o.toggleNotes?.capacityHigher ? ` — ${o.toggleNotes.capacityHigher}` : ''}
+  Receptive to feedback: ${o.toggles.receptive}${o.toggleNotes?.receptive ? ` — ${o.toggleNotes.receptive}` : ''}
+  Incidents/errors: ${o.incidents || 'None noted'}
+  Observations: ${o.notes || 'None'}
+`).join('\n')}
+
+Evaluator notes: ${evalNotes || 'None'}
+${cmiText}
+
+Generate coaching feedback for all ${offData.length} officials.`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 4000,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userPrompt }]
+      })
+    });
+
+    const data = await res.json();
+    if (!res.ok || data.error) throw new Error(data.error?.message || 'API error');
+
+    const raw = data.content.map(b => b.text||'').join('');
+    const clean = raw.replace(/```json|```/g,'').trim();
+    const parsed = JSON.parse(clean);
+    renderFeedback(parsed.officials);
+
+  } catch(err) {
+    errBar.textContent = `Error: ${err.message}`;
+    errBar.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '✦ Regenerate Feedback';
+  }
+}
+
+function renderFeedback(officials) {
+  // Store for export
+  state._lastFeedback = officials;
+
+  const out = document.getElementById('feedbackOutput');
+  let html = '';
+
+  officials.forEach(off => {
+    const score = off.overallScore;
+    const scoreColor = score >= 8 ? 'var(--green)' : score >= 6 ? 'var(--gold)' : 'var(--red)';
+
+    const scHtml = Object.entries(off.scorecard || {}).map(([k,v]) => `
+      <div class="sc-cell">
+        <div class="sc-cell-label">${k}</div>
+        <div class="sc-cell-val">${v}</div>
+      </div>`).join('');
+
+    const posTags = (off.positiveTags||[]).map(t=>`<div class="ai-tag pos">✓ ${t}</div>`).join('');
+    const devTags = (off.developmentTags||[]).map(t=>`<div class="ai-tag dev">↑ ${t}</div>`).join('');
+    const errTags = (off.criticalIncidents||[]).map(t=>`<div class="ai-tag err">⚠ ${t}</div>`).join('');
+
+    const capHtml = [
+      off.capacityCurrentLevel !== null ? `<div class="ai-tag ${off.capacityCurrentLevel?'pos':'err'}">${off.capacityCurrentLevel?'✓':'✗'} Current Level</div>` : '',
+      off.capacityHigherLevel !== null ? `<div class="ai-tag ${off.capacityHigherLevel?'pos':'err'}">${off.capacityHigherLevel?'✓':'✗'} Higher Level</div>` : '',
+      off.receptiveToFeedback !== null ? `<div class="ai-tag ${off.receptiveToFeedback?'pos':'dev'}">${off.receptiveToFeedback?'✓':'?'} Receptive</div>` : '',
+    ].join('');
+
+    const safeId = 'narr_' + off.role.replace(/\W/g,'');
+
+    html += `
+      <div class="ai-card">
+        <div class="ai-label">${off.role}</div>
+        <div class="ai-name">${off.name}</div>
+        <div class="ai-score" style="color:${scoreColor}">${score} <span>/ 10</span></div>
+        <div class="ai-scorecard">${scHtml}</div>
+        <div class="ai-tags">${posTags}${devTags}${errTags}${capHtml}</div>
+        <div class="ai-narrative" id="${safeId}">${off.narrative || ''}</div>
+        <div>
+          <button class="copy-btn" onclick="copyText('${safeId}',this)">📋 Copy</button>
+        </div>
+      </div>`;
+  });
+
+  out.innerHTML = html;
+  document.getElementById('exportBar').classList.add('visible');
+  out.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function copyText(id, btn) {
+  const text = document.getElementById(id).textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = '✓ Copied!';
+    setTimeout(() => { btn.textContent = '📋 Copy'; }, 2000);
+  });
+}
+
+// ══ EXPORT ══
+
+function boolLabel(val) {
+  if (val === true) return 'Yes';
+  if (val === false) return 'No';
+  return 'Not assessed';
+}
+
+function exportPDF() {
+  const officials = state._lastFeedback;
+  if (!officials || !officials.length) return;
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'pt', format: 'letter' });
+
+  const m = state.match;
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const margin = 48;
+  const contentW = pageW - margin * 2;
+  let y = margin;
+
+  // ── helpers ──
+  function checkPage(needed = 40) {
+    if (y + needed > pageH - margin) {
+      doc.addPage();
+      y = margin;
+      drawPageHeader();
+    }
+  }
+
+  function drawPageHeader() {
+    // thin gold top bar
+    doc.setFillColor(240, 165, 0);
+    doc.rect(margin, margin - 16, contentW, 3, 'F');
+  }
+
+  function sectionLine() {
+    doc.setDrawColor(48, 54, 61);
+    doc.setLineWidth(0.5);
+    doc.line(margin, y, pageW - margin, y);
+    y += 10;
+  }
+
+  function wrapText(text, x, startY, maxW, fontSize, lineH) {
+    doc.setFontSize(fontSize);
+    const lines = doc.splitTextToSize(text, maxW);
+    lines.forEach(line => {
+      checkPage(lineH + 4);
+      doc.text(line, x, startY !== null ? startY : y);
+      if (startY !== null) { startY = null; } else { y += lineH; }
+    });
+    return lines.length;
+  }
+
+  // ── Cover / Match Header ──
+  drawPageHeader();
+
+  // Logo area — taller to fit more info
+  doc.setFillColor(22, 27, 34);
+  doc.roundedRect(margin, y, contentW, 90, 6, 6, 'F');
+
+  doc.setTextColor(240, 165, 0);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(20);
+  doc.text('REFEREE EVALUATION REPORT', margin + 16, y + 24);
+
+  doc.setTextColor(139, 148, 158);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  const evalLine = [m.evaluator, m.eval_role, m.eval_id ? `ID: ${m.eval_id}` : ''].filter(Boolean).join('  ·  ');
+  doc.text(evalLine || 'Colorado Soccer Association  ·  Coaching-Focused Evaluation', margin + 16, y + 40);
+
+  doc.setTextColor(230, 237, 243);
+  doc.setFontSize(13);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`${m.home} vs ${m.away}`, margin + 16, y + 58);
+
+  doc.setTextColor(139, 148, 158);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  const line1 = [m.comp, m.age, m.gender].filter(Boolean).join('  ·  ');
+  const line2 = [m.level, m.round].filter(Boolean).join('  ·  ');
+  doc.text([line1, line2].filter(Boolean).join('   |   ') || 'Competition details not set', margin + 16, y + 72);
+  const venueLine = [m.venue, m.field, m.city].filter(Boolean).join('  ·  ');
+  doc.text(venueLine || '', margin + 16, y + 84);
+
+  // Score badge
+  doc.setFillColor(240, 165, 0);
+  doc.roundedRect(pageW - margin - 72, y + 20, 72, 44, 4, 4, 'F');
+  doc.setTextColor(13, 17, 23);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(24);
+  doc.text(`${state.score.home}–${state.score.away}`, pageW - margin - 36, y + 48, { align: 'center' });
+
+  y += 106;
+
+  // ── Match details grid ──
+  checkPage(60);
+  const detailRows = [
+    ['Date', m.date || '—'],
+    ['Kickoff', m.kickoff || '—'],
+    ['Weather', m.weather || '—'],
+    ['Surface', m.surface || '—'],
+  ];
+  const dColW = contentW / detailRows.length;
+  detailRows.forEach((d, i) => {
+    const cx = margin + i * dColW;
+    doc.setFillColor(31, 41, 55);
+    doc.rect(cx, y, dColW - 2, 30, 'F');
+    doc.setTextColor(139, 148, 158);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.text(d[0].toUpperCase(), cx + 7, y + 10);
+    doc.setTextColor(220, 230, 240);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    const dVal = doc.splitTextToSize(d[1], dColW - 14);
+    doc.text(dVal[0], cx + 7, y + 23);
+  });
+  y += 38;
+
+  // ── Officials crew table ──
+  checkPage(80);
+  doc.setTextColor(139, 148, 158);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.text('OFFICIALS CREW', margin, y);
+  y += 12;
+  sectionLine();
+
+  const crewRows = [
+    ['Referee', m.r, m.r_cert, m.r_badge ? `Badge: ${m.r_badge}` : ''],
+    ['AR1', m.ar1, m.ar1_cert, ''],
+    ['AR2', m.ar2, m.ar2_cert, ''],
+  ];
+  if (m.fourth) crewRows.push(['4th Official', m.fourth, m.fourth_cert, '']);
+
+  const crewColW = [80, 160, 120, 120];
+  const crewHeaders = ['Role', 'Name', 'Certification', 'Badge'];
+  // Header row
+  doc.setFillColor(31, 41, 55);
+  doc.rect(margin, y, contentW, 18, 'F');
+  let cx2 = margin;
+  crewHeaders.forEach((h, i) => {
+    doc.setTextColor(139, 148, 158);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7);
+    doc.text(h.toUpperCase(), cx2 + 6, y + 12);
+    cx2 += crewColW[i];
+  });
+  y += 18;
+
+  crewRows.forEach((row, ri) => {
+    checkPage(20);
+    if (ri % 2 === 0) { doc.setFillColor(22, 27, 34); doc.rect(margin, y, contentW, 18, 'F'); }
+    let rx = margin;
+    row.forEach((cell, ci) => {
+      doc.setTextColor(ci === 0 ? 240 : 220, ci === 0 ? 165 : 230, ci === 0 ? 0 : 240);
+      doc.setFont('helvetica', ci === 0 ? 'bold' : 'normal');
+      doc.setFontSize(ci === 1 ? 10 : 8);
+      doc.text(cell || '—', rx + 6, y + 12);
+      rx += crewColW[ci];
+    });
+    y += 18;
+  });
+  y += 16;
+
+  // Stats row
+  const stats = [
+    ['Fouls', state.counts.foul],
+    ['Yellows', state.counts.yellow],
+    ['Reds', state.counts.red],
+    ['Offsides', state.counts.offside],
+    ['Goals', state.counts.goal],
+    ['PKs', state.counts.pk],
+  ];
+  checkPage(50);
+  doc.setTextColor(139, 148, 158);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.text('MATCH STATISTICS', margin, y);
+  y += 12;
+  sectionLine();
+  const cellW = contentW / stats.length;
+  stats.forEach((s, i) => {
+    const cx = margin + i * cellW;
+    doc.setFillColor(31, 41, 55);
+    doc.rect(cx, y, cellW - 2, 36, 'F');
+    doc.setTextColor(139, 148, 158);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.text(s[0].toUpperCase(), cx + cellW/2 - 1, y + 12, { align: 'center' });
+    doc.setTextColor(240, 165, 0);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.text(String(s[1]), cx + cellW/2 - 1, y + 28, { align: 'center' });
+  });
+  y += 50;
+
+  // Match Log
+  if (state.log.length > 0) {
+    const flaggedItems = state.log.filter(e => e.flagged);
+    if (flaggedItems.length > 0) {
+      checkPage(30);
+      doc.setFillColor(248, 81, 73, 15);
+      doc.roundedRect(margin, y, contentW, 16 + flaggedItems.length * 14 + 8, 4, 4, 'F');
+      doc.setTextColor(248, 81, 73);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.text('FLAGGED FOR DISCUSSION', margin + 10, y + 12);
+      y += 20;
+      flaggedItems.forEach(entry => {
+        checkPage(14);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        doc.setTextColor(139, 148, 158);
+        doc.text(entry.time || '—', margin + 10, y);
+        doc.setTextColor(248, 81, 73);
+        const desc = ('🚩 ' + entry.desc).replace(/[^\x00-\x7F]/g, '* ');
+        const lines = doc.splitTextToSize(desc, contentW - 60);
+        doc.text(lines, margin + 50, y);
+        y += Math.max(14, lines.length * 12);
+      });
+      y += 10;
+    }
+
+    checkPage(30);
+    doc.setTextColor(139, 148, 158);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.text('MATCH LOG', margin, y);
+    y += 14;
+    sectionLine();
+
+    state.log.forEach(entry => {
+      checkPage(16);
+      doc.setTextColor(139, 148, 158);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.text(entry.time || '—', margin, y);
+      doc.setTextColor(entry.flagged ? 248 : 230, entry.flagged ? 81 : 237, entry.flagged ? 73 : 243);
+      const desc = (entry.flagged ? '[FLAGGED] ' : '') + entry.desc.replace(/[^\x00-\x7F]/g, '');
+      const lines = doc.splitTextToSize(desc, contentW - 50);
+      doc.text(lines, margin + 40, y);
+      y += Math.max(14, lines.length * 12);
+    });
+    y += 10;
+  }
+
+  // ── Officials ──
+  officials.forEach((off, oi) => {
+    checkPage(120);
+
+    // Official header bar
+    doc.setFillColor(22, 27, 34);
+    doc.roundedRect(margin, y, contentW, 56, 6, 6, 'F');
+
+    // Gold left accent
+    doc.setFillColor(240, 165, 0);
+    doc.roundedRect(margin, y, 4, 56, 2, 2, 'F');
+
+    doc.setTextColor(139, 148, 158);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.text(off.role.toUpperCase(), margin + 14, y + 16);
+
+    doc.setTextColor(230, 237, 243);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.text(off.name, margin + 14, y + 34);
+
+    // Capacity pills
+    const caps = [
+      `Current Level: ${boolLabel(off.capacityCurrentLevel)}`,
+      `Higher Level: ${boolLabel(off.capacityHigherLevel)}`,
+      `Receptive: ${boolLabel(off.receptiveToFeedback)}`,
+    ];
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(139, 148, 158);
+    doc.text(caps.join('   ·   '), margin + 14, y + 48);
+
+    // Score badge
+    const score = off.overallScore;
+    const [sr, sg, sb] = score >= 8 ? [63,185,80] : score >= 6 ? [240,165,0] : [248,81,73];
+    doc.setFillColor(sr, sg, sb);
+    doc.roundedRect(pageW - margin - 52, y + 8, 52, 40, 4, 4, 'F');
+    doc.setTextColor(13, 17, 23);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(22);
+    doc.text(String(score), pageW - margin - 26, y + 34, { align: 'center' });
+
+    y += 68;
+
+    // Scorecard table
+    checkPage(50);
+    const entries = Object.entries(off.scorecard || {});
+    const cols = 3;
+    const scW = contentW / cols;
+    const scH = 30;
+    for (let r = 0; r < Math.ceil(entries.length / cols); r++) {
+      checkPage(scH + 4);
+      for (let c = 0; c < cols; c++) {
+        const idx = r * cols + c;
+        if (idx >= entries.length) break;
+        const [k, v] = entries[idx];
+        const cx = margin + c * scW;
+        doc.setFillColor(31, 41, 55);
+        doc.rect(cx, y, scW - 2, scH, 'F');
+        doc.setTextColor(139, 148, 158);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7);
+        doc.text(k.toUpperCase(), cx + 8, y + 11);
+        doc.setTextColor(240, 165, 0);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(14);
+        doc.text(String(v ?? '—'), cx + 8, y + 25);
+      }
+      y += scH + 4;
+    }
+    y += 8;
+
+    // Tags
+    checkPage(30);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    let tagX = margin;
+    (off.positiveTags || []).forEach(tag => {
+      const tw = doc.getTextWidth('✓ ' + tag) + 16;
+      if (tagX + tw > pageW - margin) { y += 18; tagX = margin; }
+      doc.setFillColor(46, 125, 79, 30);
+      doc.roundedRect(tagX, y - 10, tw, 14, 3, 3, 'F');
+      doc.setTextColor(63, 185, 80);
+      doc.text('+ ' + tag, tagX + 8, y);
+      tagX += tw + 6;
+    });
+    (off.developmentTags || []).forEach(tag => {
+      const tw = doc.getTextWidth('↑ ' + tag) + 16;
+      if (tagX + tw > pageW - margin) { y += 18; tagX = margin; }
+      doc.setFillColor(240, 165, 0, 20);
+      doc.roundedRect(tagX, y - 10, tw, 14, 3, 3, 'F');
+      doc.setTextColor(240, 165, 0);
+      doc.text('^ ' + tag, tagX + 8, y);
+      tagX += tw + 6;
+    });
+    y += 22;
+
+    // Narrative
+    checkPage(30);
+    doc.setTextColor(139, 148, 158);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.text('COACHING FEEDBACK', margin, y);
+    y += 12;
+    sectionLine();
+
+    doc.setTextColor(201, 209, 217);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    const narrative = (off.narrative || '').replace(/[^\x00-\x7F]/g, '');
+    const narrativeLines = doc.splitTextToSize(narrative, contentW);
+    narrativeLines.forEach(line => {
+      checkPage(14);
+      doc.text(line, margin, y);
+      y += 14;
+    });
+
+    // Critical incidents
+    if ((off.criticalIncidents || []).length > 0) {
+      y += 8;
+      checkPage(30);
+      doc.setFillColor(248, 81, 73, 15);
+      doc.roundedRect(margin, y, contentW, 16 + off.criticalIncidents.length * 14, 4, 4, 'F');
+      doc.setTextColor(248, 81, 73);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.text('CRITICAL INCIDENTS', margin + 10, y + 12);
+      y += 20;
+      off.criticalIncidents.forEach(inc => {
+        checkPage(14);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        doc.setTextColor(248, 81, 73);
+        const incLines = doc.splitTextToSize('• ' + inc.replace(/[^\x00-\x7F]/g, ''), contentW - 20);
+        incLines.forEach(l => { doc.text(l, margin + 10, y); y += 13; });
+      });
+    }
+
+    y += 24;
+
+    // Divider between officials
+    if (oi < officials.length - 1) {
+      checkPage(20);
+      doc.setDrawColor(48, 54, 61);
+      doc.setLineWidth(1);
+      doc.line(margin, y, pageW - margin, y);
+      y += 24;
+    }
+  });
+
+  // Footer on each page
+  const pageCount = doc.internal.getNumberOfPages();
+  for (let p = 1; p <= pageCount; p++) {
+    doc.setPage(p);
+    doc.setFillColor(240, 165, 0);
+    doc.rect(margin, pageH - margin + 10, contentW, 2, 'F');
+    doc.setTextColor(139, 148, 158);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.text(`Referee Evaluation Report  ·  ${m.home} vs ${m.away}  ·  Generated ${new Date().toLocaleDateString()}`, margin, pageH - margin + 24);
+    doc.text(`Page ${p} of ${pageCount}`, pageW - margin, pageH - margin + 24, { align: 'right' });
+  }
+
+  // File name
+  const dateStr = m.date ? m.date.replace(/-/g,'') : new Date().toISOString().slice(0,10).replace(/-/g,'');
+  const homeSlug = m.home.replace(/[^a-z0-9]/gi,'_').toLowerCase();
+  const awaySlug = m.away.replace(/[^a-z0-9]/gi,'_').toLowerCase();
+  doc.save(`eval_${homeSlug}_vs_${awaySlug}_${dateStr}.pdf`);
+}
+
+function exportText() {
+  const officials = state._lastFeedback;
+  if (!officials || !officials.length) return;
+  const m = state.match;
+  let text = '';
+  text += `REFEREE EVALUATION REPORT\n`;
+  text += `${'='.repeat(50)}\n`;
+  text += `Evaluator: ${m.evaluator || '—'}${m.eval_role ? ' · ' + m.eval_role : ''}${m.eval_id ? ' · ID: ' + m.eval_id : ''}\n\n`;
+  text += `MATCH INFORMATION\n${'─'.repeat(30)}\n`;
+  text += `${m.home} vs ${m.away}  |  Final: ${state.score.home}–${state.score.away}\n`;
+  text += `Competition: ${[m.comp, m.age, m.gender].filter(Boolean).join(' · ') || '—'}\n`;
+  text += `Level: ${[m.level, m.round].filter(Boolean).join(' · ') || '—'}\n`;
+  text += `Date: ${m.date || '—'}  Kickoff: ${m.kickoff || '—'}\n`;
+  text += `Venue: ${[m.venue, m.field, m.city].filter(Boolean).join(', ') || '—'}\n`;
+  text += `Weather: ${m.weather || '—'}  Surface: ${m.surface || '—'}\n\n`;
+  text += `OFFICIALS CREW\n${'─'.repeat(30)}\n`;
+  text += `Referee: ${m.r}${m.r_cert ? ' (' + m.r_cert + ')' : ''}${m.r_badge ? ' Badge: ' + m.r_badge : ''}\n`;
+  text += `AR1: ${m.ar1}${m.ar1_cert ? ' (' + m.ar1_cert + ')' : ''}\n`;
+  text += `AR2: ${m.ar2}${m.ar2_cert ? ' (' + m.ar2_cert + ')' : ''}\n`;
+  if (m.fourth) text += `4th Official: ${m.fourth}${m.fourth_cert ? ' (' + m.fourth_cert + ')' : ''}\n`;
+  text += `\nSTATISTICS: Fouls ${state.counts.foul} | Yellows ${state.counts.yellow} | Reds ${state.counts.red} | Offsides ${state.counts.offside} | Goals ${state.counts.goal} | PKs ${state.counts.pk}\n\n`;
+
+  officials.forEach(off => {
+    text += `${'─'.repeat(50)}\n`;
+    text += `${off.role.toUpperCase()}: ${off.name}\n`;
+    text += `Overall Score: ${off.overallScore}/10\n`;
+    text += `Current Level: ${boolLabel(off.capacityCurrentLevel)}  |  Higher Level: ${boolLabel(off.capacityHigherLevel)}  |  Receptive: ${boolLabel(off.receptiveToFeedback)}\n\n`;
+    if (Object.keys(off.scorecard||{}).length) {
+      text += 'SCORECARD:\n';
+      Object.entries(off.scorecard).forEach(([k,v]) => { text += `  ${k}: ${v}/10\n`; });
+      text += '\n';
+    }
+    if ((off.positiveTags||[]).length) text += `Strengths: ${off.positiveTags.join(', ')}\n`;
+    if ((off.developmentTags||[]).length) text += `Development Areas: ${off.developmentTags.join(', ')}\n`;
+    text += '\nCOACHING FEEDBACK:\n' + (off.narrative || '') + '\n';
+    if ((off.criticalIncidents||[]).length) {
+      text += '\nCRITICAL INCIDENTS:\n';
+      off.criticalIncidents.forEach(i => { text += `  • ${i}\n`; });
+    }
+    text += '\n';
+  });
+
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.querySelector('.btn-export:nth-child(2)');
+    if (btn) { btn.querySelector('.exp-label').textContent = 'Copied!'; setTimeout(() => { btn.querySelector('.exp-label').textContent = 'Copy All Text'; }, 2000); }
+  }).catch(() => {
+    // Fallback: open in new window
+    const w = window.open('', '_blank');
+    w.document.write('<pre style="font-family:monospace;padding:20px;white-space:pre-wrap;">' + text + '</pre>');
+    w.document.close();
+  });
+}
+
+function printReport() {
+  const officials = state._lastFeedback;
+  if (!officials || !officials.length) return;
+  const m = state.match;
+
+  const printHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<title>Evaluation Report</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Georgia, serif; font-size: 11pt; color: #1a1a1a; padding: 40px; max-width: 750px; margin: 0 auto; }
+  h1 { font-family: Arial, sans-serif; font-size: 20pt; font-weight: 900; color: #c87f00; margin-bottom: 4px; }
+  .meta { font-size: 9pt; color: #666; margin-bottom: 6px; }
+  .scorebox { font-size: 28pt; font-weight: 900; color: #c87f00; }
+  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0; }
+  .info-cell { background: #f7f7f7; padding: 8px 12px; border-radius: 4px; }
+  .info-cell label { font-size: 8pt; text-transform: uppercase; letter-spacing: 1px; color: #999; display: block; margin-bottom: 2px; font-family: Arial, sans-serif; }
+  .info-cell span { font-size: 11pt; font-weight: 600; color: #1a1a1a; }
+  .crew-table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 10pt; }
+  .crew-table th { background: #1a1a1a; color: #f0a500; padding: 7px 10px; text-align: left; font-family: Arial, sans-serif; font-size: 8pt; letter-spacing: 1px; }
+  .crew-table td { padding: 8px 10px; border-bottom: 1px solid #eee; }
+  .crew-table tr:nth-child(even) td { background: #f9f9f9; }
+  .crew-role { font-weight: 700; color: #c87f00; font-size: 9pt; }
+  .crew-cert { font-size: 9pt; color: #666; }
+  .stats { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+  .stat { background: #f5f5f5; padding: 6px 12px; border-radius: 4px; font-size: 10pt; text-align:center; min-width: 60px; }
+  .stat strong { display: block; font-size: 16pt; color: #c87f00; font-family: Arial, sans-serif; }
+  .official { margin-bottom: 32px; page-break-inside: avoid; }
+  .off-header { background: #1a1a1a; color: white; padding: 12px 16px; border-radius: 6px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+  .off-role { font-size: 8pt; color: #aaa; text-transform: uppercase; letter-spacing: 1px; }
+  .off-name { font-size: 16pt; font-weight: 700; }
+  .off-caps { font-size: 8pt; color: #aaa; margin-top: 4px; }
+  .score-badge { font-size: 24pt; font-weight: 900; padding: 8px 14px; border-radius: 6px; color: #1a1a1a; }
+  .score-high { background: #3fb950; }
+  .score-mid { background: #f0a500; }
+  .score-low { background: #f85149; }
+  .scorecard { display: grid; grid-template-columns: repeat(3,1fr); gap: 6px; margin-bottom: 12px; }
+  .sc { background: #f5f5f5; padding: 8px; border-radius: 4px; }
+  .sc label { font-size: 8pt; color: #666; display: block; font-family: Arial, sans-serif; }
+  .sc span { font-size: 14pt; font-weight: 700; color: #c87f00; }
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+  .tag { font-size: 9pt; padding: 2px 10px; border-radius: 20px; font-weight: 600; font-family: Arial, sans-serif; }
+  .tag.pos { background: #e6f4ec; color: #2e7d4f; }
+  .tag.dev { background: #fef3e2; color: #a06010; }
+  h3 { font-size: 9pt; text-transform: uppercase; letter-spacing: 1px; color: #999; margin-bottom: 8px; border-bottom: 1px solid #eee; padding-bottom: 4px; font-family: Arial, sans-serif; }
+  p { line-height: 1.8; margin-bottom: 8px; font-size: 10.5pt; }
+  .incidents { background: #fff5f5; border-left: 3px solid #f85149; padding: 10px 14px; margin-top: 10px; border-radius: 0 4px 4px 0; }
+  .incidents p { color: #c0392b; font-size: 10pt; }
+  .divider { border: none; border-top: 2px solid #f0a500; margin: 24px 0; }
+  .log-entry { font-size: 9pt; color: #444; padding: 3px 0; border-bottom: 1px solid #eee; font-family: monospace; }
+  .log-time { color: #999; min-width: 40px; display: inline-block; }
+  .section-head { font-family: Arial, sans-serif; font-size: 9pt; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: #888; margin: 16px 0 6px; }
+  @media print { body { padding: 20px; } }
+</style></head><body>
+<h1>Referee Evaluation Report</h1>
+<div class="meta">${[m.evaluator, m.eval_role, m.eval_id ? `Evaluator ID: ${m.eval_id}` : ''].filter(Boolean).join('  ·  ') || 'Colorado Soccer Association'}</div>
+
+<div style="display:flex;align-items:center;gap:20px;margin-bottom:12px;flex-wrap:wrap;">
+  <div>
+    <div style="font-size:15pt;font-weight:700;font-family:Arial;">${m.home} <span style="color:#aaa;">vs</span> ${m.away}</div>
+    <div class="meta" style="margin:2px 0 0;">${[m.comp, m.age, m.gender].filter(Boolean).join('  ·  ')}</div>
+    <div class="meta" style="margin:1px 0 0;">${[m.level, m.round].filter(Boolean).join('  ·  ')}</div>
+  </div>
+  <div class="scorebox">${state.score.home} – ${state.score.away}</div>
+</div>
+
+<div class="info-grid">
+  <div class="info-cell"><label>Date</label><span>${m.date || '—'}</span></div>
+  <div class="info-cell"><label>Kickoff</label><span>${m.kickoff || '—'}</span></div>
+  <div class="info-cell"><label>Venue</label><span>${[m.venue, m.field].filter(Boolean).join(' · ') || '—'}</span></div>
+  <div class="info-cell"><label>City</label><span>${m.city || '—'}</span></div>
+  <div class="info-cell"><label>Weather</label><span>${m.weather || '—'}</span></div>
+  <div class="info-cell"><label>Surface</label><span>${m.surface || '—'}</span></div>
+</div>
+
+<div class="section-head">Officials Crew</div>
+<table class="crew-table">
+  <thead><tr><th>Role</th><th>Name</th><th>Certification</th><th>Badge / ID</th></tr></thead>
+  <tbody>
+    <tr><td class="crew-role">Referee</td><td><strong>${m.r}</strong></td><td class="crew-cert">${m.r_cert || '—'}</td><td class="crew-cert">${m.r_badge || '—'}</td></tr>
+    <tr><td class="crew-role">AR1</td><td><strong>${m.ar1}</strong></td><td class="crew-cert">${m.ar1_cert || '—'}</td><td class="crew-cert">—</td></tr>
+    <tr><td class="crew-role">AR2</td><td><strong>${m.ar2}</strong></td><td class="crew-cert">${m.ar2_cert || '—'}</td><td class="crew-cert">—</td></tr>
+    ${m.fourth ? `<tr><td class="crew-role">4th Official</td><td><strong>${m.fourth}</strong></td><td class="crew-cert">${m.fourth_cert || '—'}</td><td class="crew-cert">—</td></tr>` : ''}
+  </tbody>
+</table>
+
+<div class="section-head">Match Statistics</div>
+<div class="stats">
+  <div class="stat"><strong>${state.counts.foul}</strong> Fouls</div>
+  <div class="stat"><strong>${state.counts.yellow}</strong> Yellows</div>
+  <div class="stat"><strong>${state.counts.red}</strong> Reds</div>
+  <div class="stat"><strong>${state.counts.offside}</strong> Offsides</div>
+  <div class="stat"><strong>${state.counts.goal}</strong> Goals</div>
+  <div class="stat"><strong>${state.counts.pk}</strong> PKs</div>
+</div>
+
+${state.log.filter(e=>e.flagged).length > 0 ? `
+<div class="section-head" style="color:#f85149;">🚩 Flagged for Discussion</div>
+<div style="background:#fff5f5;border:1px solid #f5b8b8;border-radius:6px;padding:10px 14px;margin-bottom:16px;">
+${state.log.filter(e=>e.flagged).map(e=>`<div class="log-entry" style="color:#c0392b;border-bottom-color:#f5b8b8;"><span class="log-time">${e.time||'—'}</span> ${e.desc}</div>`).join('')}
+</div>` : ''}
+${state.log.length > 0 ? `<div class="section-head">Match Log</div>${state.log.map(e=>`<div class="log-entry" ${e.flagged?'style="color:#c0392b;"':''}><span class="log-time">${e.time||'—'}</span>${e.flagged?' 🚩 ':' '}${e.desc}</div>`).join('')}<br>` : ''}
+<hr class="divider">
+${officials.map(off => {
+  const score = off.overallScore;
+  const scoreClass = score >= 8 ? 'score-high' : score >= 6 ? 'score-mid' : 'score-low';
+  const scHtml = Object.entries(off.scorecard||{}).map(([k,v])=>`<div class="sc"><label>${k}</label><span>${v}</span></div>`).join('');
+  const posTags = (off.positiveTags||[]).map(t=>`<div class="tag pos">✓ ${t}</div>`).join('');
+  const devTags = (off.developmentTags||[]).map(t=>`<div class="tag dev">↑ ${t}</div>`).join('');
+  const paragraphs = (off.narrative||'').split(/\n+/).filter(Boolean).map(p=>`<p>${p}</p>`).join('');
+  return `<div class="official">
+    <div class="off-header">
+      <div>
+        <div class="off-role">${off.role}</div>
+        <div class="off-name">${off.name}</div>
+        <div class="off-caps">Current Level: ${boolLabel(off.capacityCurrentLevel)}  ·  Higher Level: ${boolLabel(off.capacityHigherLevel)}  ·  Receptive: ${boolLabel(off.receptiveToFeedback)}</div>
+      </div>
+      <div class="score-badge ${scoreClass}">${score}</div>
+    </div>
+    <div class="scorecard">${scHtml}</div>
+    <div class="tags">${posTags}${devTags}</div>
+    <h3>Coaching Feedback</h3>
+    ${paragraphs}
+    ${(off.criticalIncidents||[]).length ? `<div class="incidents"><strong>Critical Incidents</strong>${off.criticalIncidents.map(i=>`<p>• ${i}</p>`).join('')}</div>` : ''}
+  </div><hr class="divider">`;
+}).join('')}
+<div style="font-size:9pt;color:#aaa;text-align:center;margin-top:20px;">Generated ${new Date().toLocaleString()} · Referee Evaluator App</div>
+</body></html>`;
+
+  const w = window.open('', '_blank');
+  w.document.write(printHtml);
+  w.document.close();
+  setTimeout(() => { w.print(); }, 600);
+}
+
+// ══ FINALIZE MATCH ══
+function openFinalizeModal() {
+  if (state.clock.running) toggleClock();
+  const m = state.match;
+  const cmis = state.cmis || [];
+  const flagged = state.log.filter(e => e.flagged);
+
+  let body = `
+    <div class="finalize-teams">${m.home} vs ${m.away}</div>
+    <div class="finalize-score">${state.score.home} – ${state.score.away}</div>
+    <div class="card" style="margin-bottom:14px;">
+      <div class="finalize-stat-row"><span class="finalize-stat-label">Competition</span><span class="finalize-stat-val">${m.comp || '—'}</span></div>
+      <div class="finalize-stat-row"><span class="finalize-stat-label">Date</span><span class="finalize-stat-val">${m.date || '—'}</span></div>
+      <div class="finalize-stat-row"><span class="finalize-stat-label">Venue</span><span class="finalize-stat-val">${[m.venue, m.field].filter(Boolean).join(', ') || '—'}</span></div>
+      <div class="finalize-stat-row"><span class="finalize-stat-label">Referee</span><span class="finalize-stat-val">${m.r}</span></div>
+      <div class="finalize-stat-row"><span class="finalize-stat-label">Total Events</span><span class="finalize-stat-val">${state.log.length}</span></div>
+      <div class="finalize-stat-row"><span class="finalize-stat-label">Fouls</span><span class="finalize-stat-val">${state.counts.foul}</span></div>
+      <div class="finalize-stat-row"><span class="finalize-stat-label">Yellow Cards</span><span class="finalize-stat-val">${state.counts.yellow}</span></div>
+      <div class="finalize-stat-row"><span class="finalize-stat-label">Red Cards</span><span class="finalize-stat-val">${state.counts.red}</span></div>
+      <div class="finalize-stat-row"><span class="finalize-stat-label">Goals</span><span class="finalize-stat-val">${state.counts.goal}</span></div>
+      <div class="finalize-stat-row"><span class="finalize-stat-label">Offsides</span><span class="finalize-stat-val">${state.counts.offside}</span></div>
+      <div class="finalize-stat-row"><span class="finalize-stat-label">CMIs Logged</span><span class="finalize-stat-val">${cmis.length}</span></div>
+      <div class="finalize-stat-row"><span class="finalize-stat-label">Flagged Events</span><span class="finalize-stat-val">${flagged.length}</span></div>
+    </div>`;
+
+  if (cmis.length > 0) {
+    body += `<div class="section-label" style="color:var(--red);margin-bottom:8px;">⚠ Critical Match Incidents</div>`;
+    cmis.forEach(c => {
+      body += `<div class="finalize-cmi-row">${c.meta.icon} ${c.meta.label}${c.decision ? ' — ' + c.decision : ''}${c.time ? ' @ ' + c.time : ''}</div>`;
+    });
+    body += `<div style="height:12px;"></div>`;
+  }
+
+  if (flagged.length > 0) {
+    body += `<div class="section-label" style="margin-bottom:8px;">🚩 Flagged for Discussion</div>`;
+    flagged.forEach(e => {
+      body += `<div class="log-item flagged" style="margin-bottom:6px;">
+        <div class="log-time">${e.time||'—'}</div>
+        <div class="log-icon">${e.icon}</div>
+        <div class="log-desc" style="font-size:12px;">${e.desc}</div>
+      </div>`;
+    });
+    body += `<div style="height:12px;"></div>`;
+  }
+
+  body += `<p style="font-size:12px;color:var(--muted);text-align:center;margin-bottom:14px;">Finalizing locks the match summary. You can still edit Ratings and generate AI Feedback.</p>`;
+
+  document.getElementById('finalizeBody').innerHTML = body;
+  document.getElementById('finalizeModal').classList.add('open');
+}
+
+function closeFinalizeModal() {
+  document.getElementById('finalizeModal').classList.remove('open');
+}
+
+function confirmFinalize() {
+  state.finalized = true;
+  addLogItem('🏁', `Match Finalized — ${state.match.home} ${state.score.home}–${state.score.away} ${state.match.away}`, null, false);
+  const btn = document.querySelector('.btn-finalize');
+  if (btn) {
+    btn.textContent = '✓ Match Finalized';
+    btn.classList.add('finalized');
+    btn.disabled = true;
+  }
+  closeFinalizeModal();
+  // Prompt to switch to ratings
+  setTimeout(() => {
+    const tabs = document.querySelectorAll('.tab');
+    const ratingsTab = Array.from(tabs).find(t => t.textContent.trim() === 'Ratings');
+    if (ratingsTab) { switchTab('ratings', ratingsTab); }
+  }, 400);
+}
+
+// ══ MATCH LOG PDF ══
+function exportMatchLogPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'pt', format: 'letter' });
+  const m = state.match;
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const margin = 48;
+  const contentW = pageW - margin * 2;
+  let y = margin;
+
+  function checkPage(needed = 20) {
+    if (y + needed > pageH - margin) {
+      doc.addPage();
+      y = margin;
+      drawHeader();
+    }
+  }
+
+  function drawHeader() {
+    doc.setFillColor(240, 165, 0);
+    doc.rect(margin, margin - 16, contentW, 3, 'F');
+  }
+
+  drawHeader();
+
+  // Title block
+  doc.setFillColor(22, 27, 34);
+  doc.roundedRect(margin, y, contentW, 70, 6, 6, 'F');
+
+  doc.setTextColor(240, 165, 0);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(18);
+  doc.text('MATCH LOG', margin + 16, y + 22);
+
+  doc.setTextColor(230, 237, 243);
+  doc.setFontSize(13);
+  doc.text(`${m.home} vs ${m.away}`, margin + 16, y + 42);
+
+  doc.setTextColor(139, 148, 158);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  const metaLine = [m.comp, m.date, [m.venue, m.field].filter(Boolean).join(', ')].filter(Boolean).join('  ·  ');
+  doc.text(metaLine || 'Match details not set', margin + 16, y + 58);
+
+  // Score badge
+  doc.setFillColor(240, 165, 0);
+  doc.roundedRect(pageW - margin - 68, y + 12, 68, 46, 4, 4, 'F');
+  doc.setTextColor(13, 17, 23);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(22);
+  doc.text(`${state.score.home}–${state.score.away}`, pageW - margin - 34, y + 42, { align: 'center' });
+
+  y += 86;
+
+  // Crew row
+  doc.setFillColor(31, 41, 55);
+  doc.rect(margin, y, contentW, 22, 'F');
+  doc.setTextColor(139, 148, 158);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  const crewLine = `R: ${m.r}  ·  AR1: ${m.ar1}  ·  AR2: ${m.ar2}${m.fourth ? '  ·  4th: ' + m.fourth : ''}  ·  Evaluator: ${m.evaluator || '—'}`;
+  doc.text(crewLine, margin + 8, y + 15);
+  y += 30;
+
+  // Stats strip
+  const stats = [['Fouls', state.counts.foul],['Yellows',state.counts.yellow],['Reds',state.counts.red],['Offsides',state.counts.offside],['Goals',state.counts.goal],['PKs',state.counts.pk]];
+  const sw = contentW / stats.length;
+  stats.forEach((s, i) => {
+    const cx = margin + i * sw;
+    doc.setFillColor(31, 41, 55);
+    doc.rect(cx, y, sw - 2, 30, 'F');
+    doc.setTextColor(139, 148, 158);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.text(s[0].toUpperCase(), cx + sw/2, y + 10, { align: 'center' });
+    doc.setTextColor(240, 165, 0);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.text(String(s[1]), cx + sw/2, y + 25, { align: 'center' });
+  });
+  y += 40;
+
+  // CMIs section
+  const cmis = state.cmis || [];
+  if (cmis.length > 0) {
+    checkPage(30);
+    doc.setFillColor(248, 81, 73, 15);
+    doc.roundedRect(margin, y, contentW, 16 + cmis.length * 16 + 4, 4, 4, 'F');
+    doc.setTextColor(248, 81, 73);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.text('CRITICAL MATCH INCIDENTS', margin + 10, y + 12);
+    y += 20;
+    cmis.forEach(c => {
+      checkPage(16);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(139, 148, 158);
+      doc.text(c.time || '—', margin + 10, y);
+      doc.setTextColor(248, 81, 73);
+      const cText = `${c.meta.label}${c.decision ? ' [' + c.decision + ']' : ''}${c.by ? ' — ' + c.by : ''}${c.desc ? ': ' + c.desc.substring(0,80).replace(/[^\x00-\x7F]/g,'') : ''}`;
+      const cLines = doc.splitTextToSize(cText, contentW - 60);
+      doc.text(cLines, margin + 50, y);
+      y += Math.max(14, cLines.length * 12);
+    });
+    y += 10;
+  }
+
+  // Flagged events
+  const flagged = state.log.filter(e => e.flagged);
+  if (flagged.length > 0) {
+    checkPage(30);
+    doc.setTextColor(240, 165, 0);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.text('FLAGGED FOR DISCUSSION', margin, y);
+    y += 12;
+    doc.setDrawColor(240, 165, 0);
+    doc.setLineWidth(0.5);
+    doc.line(margin, y, pageW - margin, y);
+    y += 8;
+    flagged.forEach(e => {
+      checkPage(14);
+      doc.setTextColor(139, 148, 158);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.text(e.time || '—', margin, y);
+      doc.setTextColor(240, 165, 0);
+      const lines = doc.splitTextToSize('🚩 ' + e.desc.replace(/[^\x00-\x7F]/g, ''), contentW - 50);
+      doc.text(lines, margin + 40, y);
+      y += Math.max(14, lines.length * 12);
+    });
+    y += 10;
+  }
+
+  // Full match log
+  checkPage(30);
+  doc.setTextColor(139, 148, 158);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.text('FULL MATCH LOG', margin, y);
+  y += 12;
+  doc.setDrawColor(48, 54, 61);
+  doc.setLineWidth(0.5);
+  doc.line(margin, y, pageW - margin, y);
+  y += 8;
+
+  state.log.forEach((e, i) => {
+    checkPage(14);
+    // Alternate row shading
+    if (i % 2 === 0) {
+      doc.setFillColor(22, 27, 34);
+      doc.rect(margin, y - 10, contentW, 14, 'F');
+    }
+    doc.setTextColor(139, 148, 158);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.text(e.time || '—', margin + 2, y);
+    doc.setTextColor(e.flagged ? 248 : 220, e.flagged ? 81 : 230, e.flagged ? 73 : 240);
+    const desc = (e.flagged ? '[F] ' : '') + e.desc.replace(/[^\x00-\x7F]/g, '');
+    const lines = doc.splitTextToSize(desc, contentW - 46);
+    doc.text(lines, margin + 44, y);
+    y += Math.max(14, lines.length * 12);
+  });
+
+  // Footer
+  const pageCount = doc.internal.getNumberOfPages();
+  for (let p = 1; p <= pageCount; p++) {
+    doc.setPage(p);
+    doc.setFillColor(240, 165, 0);
+    doc.rect(margin, pageH - margin + 10, contentW, 2, 'F');
+    doc.setTextColor(139, 148, 158);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.text(`Match Log  ·  ${m.home} vs ${m.away}  ·  Generated ${new Date().toLocaleDateString()}`, margin, pageH - margin + 24);
+    doc.text(`Page ${p} of ${pageCount}`, pageW - margin, pageH - margin + 24, { align: 'right' });
+  }
+
+  const dateStr = (m.date || new Date().toISOString().slice(0,10)).replace(/-/g,'');
+  const slug = `${m.home}_vs_${m.away}`.replace(/[^a-z0-9]/gi,'_').toLowerCase();
+  doc.save(`match_log_${slug}_${dateStr}.pdf`);
+}
+// ══ THEME ══
+const THEME_META = {
+  dark:  { icon: '🌙', label: 'Dark' },
+  light: { icon: '☀️', label: 'Light' },
+  auto:  { icon: '⚙️', label: 'Auto' },
+};
+
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme === 'dark' ? '' : theme);
+  if (theme === 'dark') {
+    document.documentElement.removeAttribute('data-theme');
+  } else {
+    document.documentElement.setAttribute('data-theme', theme);
+  }
+  const meta = THEME_META[theme];
+  document.getElementById('themeIcon').textContent = meta.icon;
+  document.getElementById('themeLabel').textContent = meta.label;
+  // Update iOS status bar color
+  const themeColorMeta = document.querySelector('meta[name="theme-color"]');
+  if (themeColorMeta) {
+    const isDark = theme === 'dark' || (theme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    themeColorMeta.content = isDark ? '#0d1117' : '#f4f6fa';
+  }
+  try { localStorage.setItem('refeval-theme', theme); } catch(e) {}
+}
+
+function cycleTheme() {
+  const current = (function() {
+    try { return localStorage.getItem('refeval-theme') || 'dark'; } catch(e) { return 'dark'; }
+  })();
+  const idx = THEMES.indexOf(current);
+  const next = THEMES[(idx + 1) % THEMES.length];
+  applyTheme(next);
+}
+
+// Apply saved theme on load
+(function() {
+  try {
+    const saved = localStorage.getItem('refeval-theme') || 'dark';
+    applyTheme(saved);
+  } catch(e) { applyTheme('dark'); }
+})();
+
+// ══ INIT ══
+buildRatingsPanel(0);
+updateHeader();
+// Mark 1st Half as active on load
+document.getElementById('pb-1h').classList.add('active');
+// Style ET and PSO buttons
+['pb-et1','pb-etht','pb-et2'].forEach(id => {
+  const b = document.getElementById(id);
+  if (b) b.classList.add('et');
+});
+const psoBtn = document.getElementById('pb-pso');
+if (psoBtn) psoBtn.classList.add('pso-btn-period');
+
+// ══ SERVICE WORKER (PWA offline support) ══
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  const swCode = `
+const CACHE = 'ref-eval-v1';
+const OFFLINE_URLS = [
+  self.location.href,
+  'https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600&display=swap',
+  'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
+];
+
+self.addEventListener('install', e => {
+  e.waitUntil(
+    caches.open(CACHE).then(cache => {
+      // Cache what we can, ignore failures (fonts may be restricted)
+      return Promise.allSettled(OFFLINE_URLS.map(url => cache.add(url).catch(() => {})));
+    }).then(() => self.skipWaiting())
+  );
+});
+
+self.addEventListener('activate', e => {
+  e.waitUntil(
+    caches.keys().then(keys =>
+      Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
+    ).then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener('fetch', e => {
+  // Network first for API calls, cache first for everything else
+  if (e.request.url.includes('anthropic.com')) {
+    e.respondWith(fetch(e.request));
+    return;
+  }
+  e.respondWith(
+    caches.match(e.request).then(cached => {
+      if (cached) return cached;
+      return fetch(e.request).then(response => {
+        if (response && response.status === 200 && response.type !== 'opaque') {
+          const clone = response.clone();
+          caches.open(CACHE).then(cache => cache.put(e.request, clone));
+        }
+        return response;
+      }).catch(() => cached);
+    })
+  );
+});
+`;
+
+  const swBlob = new Blob([swCode], { type: 'application/javascript' });
+  const swUrl = URL.createObjectURL(swBlob);
+  navigator.serviceWorker.register(swUrl, { scope: './' })
+    .then(reg => {
+      console.log('Ref Eval: Service worker registered', reg.scope);
+      // Check for updates on each load
+      reg.update();
+    })
+    .catch(err => console.log('SW registration failed (normal in local file mode):', err));
+}
+
+// ══ INSTALL PROMPT (Android/Chrome) ══
+let deferredInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  // Show a subtle install banner after 3 seconds if not already installed
+  setTimeout(() => {
+    if (deferredInstallPrompt && !window.matchMedia('(display-mode: standalone)').matches) {
+      showInstallBanner();
+    }
+  }, 3000);
+});
+
+function showInstallBanner() {
+  if (document.getElementById('installBanner')) return;
+  const banner = document.createElement('div');
+  banner.id = 'installBanner';
+  banner.style.cssText = `
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: #1f2937; border-top: 1px solid #f0a500;
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+    display: flex; align-items: center; gap: 12px; z-index: 9999;
+    font-family: 'DM Sans', sans-serif;
+  `;
+  banner.innerHTML = `
+    <span style="font-size:24px;">⚽</span>
+    <div style="flex:1;">
+      <div style="font-size:13px;font-weight:600;color:#e6edf3;">Add Ref Eval to Home Screen</div>
+      <div style="font-size:11px;color:#8b949e;">Works offline · Feels like a native app</div>
+    </div>
+    <button onclick="installApp()" style="background:#f0a500;color:#0d1117;border:none;border-radius:8px;padding:8px 14px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;">Install</button>
+    <button onclick="document.getElementById('installBanner').remove()" style="background:none;border:none;color:#8b949e;font-size:20px;cursor:pointer;padding:4px;">✕</button>
+  `;
+  document.body.appendChild(banner);
+}
+
+function installApp() {
+  if (deferredInstallPrompt) {
+    deferredInstallPrompt.prompt();
+    deferredInstallPrompt.userChoice.then(() => {
+      deferredInstallPrompt = null;
+      const banner = document.getElementById('installBanner');
+      if (banner) banner.remove();
+    });
+  }
+}
+</script>
+</body>
+</html>
